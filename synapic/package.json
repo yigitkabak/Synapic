@@ -1,15 +1,14 @@
 {
-  "name": "synapic",
+  "name": "synapic-runner",
   "version": "1.0.0",
-  "description": "Synapic module that can be linked with npm link",
-  "main": "index.js",
+  "description": "Synapic runner with exec",
+  "main": "run-synapic.js",
   "bin": {
-    "synapic": "./app.js"
+    "synapic": "./run-synapic.js"
   },
   "scripts": {
-    "start": "node app.js"
+    "start": "node run-synapic.js"
   },
-  "keywords": [],
   "author": "",
   "license": "ISC"
 }
