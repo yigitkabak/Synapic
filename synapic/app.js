@@ -1,1 +1,0 @@
-console.log("Şu anki çalışma dizinim:", process.cwd());
