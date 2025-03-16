@@ -1,7 +1,15 @@
 {
   "name": "synapic",
   "version": "1.0.0",
+  "description": "Synapic module that can be linked with npm link",
+  "main": "index.js",
   "bin": {
-    "synapic": "cli.js"
-  }
+    "synapic": "./app.js"
+  },
+  "scripts": {
+    "start": "node app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
