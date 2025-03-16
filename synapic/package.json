@@ -1,0 +1,7 @@
+{
+  "name": "synapic",
+  "version": "1.0.0",
+  "bin": {
+    "synapic": "cli.js"
+  }
+}
