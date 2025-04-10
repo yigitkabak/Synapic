@@ -15,20 +15,13 @@ Synapic Search, aynı zamanda geliştiriciler için API desteği sunarak, üçü
 # Synapic'i Cihazınıza Kurun!
 Synapic Search'ü cihazınıza indirmek için șu yolları izleyin.
 
+Sadece kurulum scriptimizi çalıștırın.
 ```bash
-git clone https://github.com/yigitkabak/Synapic
+chmod +x synapic.sh
 ```
-
-gerekli modülleri indirin.
-
-```
-naper install ejs axios express
-```
-
-son olarak projeyi çalıștırın.
-
-```
-node app.js
+ve
+```bash
+./synapic.sh
 ```
 
 HEPSİ BU KADAR!
