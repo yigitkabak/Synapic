@@ -24,7 +24,8 @@ if [ -d "Synapic" ]; then
     naper install cheerio > /dev/null 2>&1 && echo -e "${GREEN}cheerio kuruldu ✅${RESET}"
 
     echo
-    echo -e "${ORANGE}Synapic kurucuya hoşgeldiniz${RESET}"
+    echo -e "${ORANGE}Synapic Search kurulumu Sona Erdi.${RESET}"
+    echo -e "${ORANGE}Aperture Labs. ©2024"
     echo
     sleep 1
     node app.js
