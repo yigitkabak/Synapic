@@ -5,92 +5,153 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Synapic Search Manifesto</title>
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" 
-          integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" 
-          crossorigin="anonymous" referrerpolicy="no-referrer" />
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/js/all.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            background-color: #1e1e1e;
+        :root {
+            --bg-primary: #121212;
+            --bg-secondary: #1e1e1e;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --accent: #7289fd;
+            --accent-hover: #5a6fd8;
         }
-        
+
+        .light-theme {
+            --bg-primary: #f5f7fa;
+            --bg-secondary: #ffffff;
+            --text-primary: #1f2937;
+            --text-secondary: rgba(31, 41, 55, 0.7);
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            background-image: radial-gradient(circle at top right, rgba(114, 137, 253, 0.08), transparent 40%), 
+                            radial-gradient(circle at bottom left, rgba(114, 137, 253, 0.05), transparent 30%);
+        }
+
+        .light-theme body {
+            background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 40%), 
+                            radial-gradient(circle at bottom left, rgba(99, 102, 241, 0.03), transparent 30%);
+        }
+
         .gradient-text {
-            background: linear-gradient(to right, #ffcc00, #ff6600);
+            background: linear-gradient(to right, var(--accent), #a855f7);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        .container {
-            max-width: 800px;
+        .manifesto-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 1rem 0;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .back-button {
-            @apply text-yellow-400 hover:text-yellow-300 font-medium text-sm;
+        .light-theme .manifesto-card {
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen text-white p-6">
+<body class="min-h-screen">
+    <nav class="sticky top-0 bg-[var(--bg-primary)] border-b border-[rgba(255,255,255,0.1)] backdrop-blur-lg w-full">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <a href="/" class="flex items-center space-x-2">
+                    <div class="synapic-logo">
+                        <span class="text-2xl font-bold" style="color: var(--accent)">Synapic</span>
+                    </div>
+                </a>
+                <div class="flex items-center space-x-4">
+                    <button id="themeToggle" class="p-2 rounded-full hover:bg-[var(--button-bg)] transition-colors">
+                        <i class="fa-solid fa-moon text-[var(--accent)]"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
 
-    <div class="text-center">
-        <img src="https://raw.githubusercontent.com/devyigit/devyigit.github.io/refs/heads/main/%C4%B0mages/1738764999135.png" 
-             class="w-40 rounded-full mx-auto" alt="Synapic Search">
-    </div>
+    <main class="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+        <div class="text-center">
+            <img src="https://raw.githubusercontent.com/yigitkabak/aperture/refs/heads/main/1744471971050.png" 
+                 class="w-40 rounded-full mx-auto border-4 border-[var(--accent)]/20" alt="Synapic Search">
+        </div>
 
-    <h1 class="text-4xl font-bold mt-6 gradient-text">Synapic Manifestosu</h1>
+        <h1 class="text-4xl font-bold mt-8 text-center gradient-text">Synapic Manifestosu</h1>
 
-    <div class="container mt-6">
-        <p class="text-lg leading-relaxed text-gray-300">
-            İnternetin bilgi kaynağı olarak özgür ve tarafsız olması gerektiğine inanıyoruz. 
-            Kaimo Search, kullanıcılarına hızlı, güvenli ve sansürsüz bir bilgi akışı sağlamak için doğdu.  
-        </p>
+        <div class="manifesto-card mt-8">
+            <p class="text-lg leading-relaxed text-[var(--text-secondary)]">
+                İnternetin bilgi kaynağı olarak özgür ve tarafsız olması gerektiğine inanıyoruz. 
+                Synapic Search, kullanıcılarına hızlı, güvenli ve sansürsüz bir bilgi akışı sağlamak için doğdu.  
+            </p>
 
-        <h2 class="text-2xl font-semibold mt-6 text-yellow-400">📌 Amacımız</h2>
-        <p class="mt-2 text-gray-300 leading-relaxed">
-            Dünyanın her köşesinden herkesin bilgiye eşit ve özgür bir şekilde erişebilmesini sağlamak.  
-            Gizliliğinize saygı gösteren, sizi takip etmeyen, adil bir arama motoru yaratmak.  
-        </p>
+            <h2 class="text-2xl font-semibold mt-6" style="color: var(--accent)">📌 Amacımız</h2>
+            <p class="mt-2 text-[var(--text-secondary)] leading-relaxed">
+                Dünyanın her köşesinden herkesin bilgiye eşit ve özgür bir şekilde erişebilmesini sağlamak.  
+                Gizliliğinize saygı gösteren, sizi takip etmeyen, adil bir arama motoru yaratmak.  
+            </p>
 
-        <h2 class="text-2xl font-semibold mt-6 text-yellow-400">🛡️ Gizlilik Önceliğimiz</h2>
-        <p class="mt-2 text-gray-300 leading-relaxed">
-            Synapic, kullanıcı verilerini toplamayan ve üçüncü taraflara satmayan bir platformdur.  
-            Aramalarınız sizin gizliliğinizdedir. Kaimo, güvenli ve özel bir arama deneyimi sunar.  
-        </p>
+            <h2 class="text-2xl font-semibold mt-6" style="color: var(--accent)">🛡️ Gizlilik Önceliğimiz</h2>
+            <p class="mt-2 text-[var(--text-secondary)] leading-relaxed">
+                Synapic, kullanıcı verilerini toplamayan ve üçüncü taraflara satmayan bir platformdur.  
+                Aramalarınız sizin gizliliğinizdedir. Synapic, güvenli ve özel bir arama deneyimi sunar.  
+            </p>
 
-        <h2 class="text-2xl font-semibold mt-6 text-yellow-400">🔍 Tarafsız ve Özgür Arama</h2>
-        <p class="mt-2 text-gray-300 leading-relaxed">
-            İnternetin bilgi kaynağı manipülasyondan uzak olmalıdır.  
-            Kaimo, algoritmalarında adil ve şeffaf olmayı taahhüt eder.  
-        </p>
+            <h2 class="text-2xl font-semibold mt-6" style="color: var(--accent)">🔍 Tarafsız ve Özgür Arama</h2>
+            <p class="mt-2 text-[var(--text-secondary)] leading-relaxed">
+                İnternetin bilgi kaynağı manipülasyondan uzak olmalıdır.  
+                Synapic, algoritmalarında adil ve şeffaf olmayı taahhüt eder.  
+            </p>
 
-        <h2 class="text-2xl font-semibold mt-6 text-yellow-400">🌍 Açık Kaynak ve Topluluk Desteği</h2>
-        <p class="mt-2 text-gray-300 leading-relaxed">
-            Synapic, topluluğun katkılarıyla gelişmeye devam eden bir projedir.  
-            Açık kaynak kodlu yapısıyla herkesin katkıda bulunabileceği bir platform sunuyoruz.  
-        </p>
+            <h2 class="text-2xl font-semibold mt-6" style="color: var(--accent)">🌍 Açık Kaynak ve Topluluk Desteği</h2>
+            <p class="mt-2 text-[var(--text-secondary)] leading-relaxed">
+                Synapic, topluluğun katkılarıyla gelişmeye devam eden bir projedir.  
+                Açık kaynak kodlu yapısıyla herkesin katkıda bulunabileceği bir platform sunuyoruz.  
+            </p>
 
-        <h2 class="text-2xl font-semibold mt-6 text-yellow-400">💡 Yenilikçi Teknoloji</h2>
-        <p class="mt-2 text-gray-300 leading-relaxed">
-            Synapic, modern yazılım teknolojileriyle desteklenmiş, güçlü bir arama altyapısı sunar.  
-            Kullanıcı deneyimini en üst düzeye çıkarmak için sürekli gelişen bir sistemdir.  
-        </p>
+            <h2 class="text-2xl font-semibold mt-6" style="color: var(--accent)">💡 Yenilikçi Teknoloji</h2>
+            <p class="mt-2 text-[var(--text-secondary)] leading-relaxed">
+                Synapic, modern yazılım teknolojileriyle desteklenmiş, güçlü bir arama altyapısı sunar.  
+                Kullanıcı deneyimini en üst düzeye çıkarmak için sürekli gelişen bir sistemdir.  
+            </p>
 
-        <h2 class="text-2xl font-semibold mt-6 text-yellow-400">🚀 Gelecek Vizyonumuz</h2>
-        <p class="mt-2 text-gray-300 leading-relaxed">
-            Synapic, sadece bir arama motoru değil, bir devrimdir.  
-            Daha hızlı, daha akıllı ve daha güvenli internet aramaları için buradayız.  
-        </p>
+            <h2 class="text-2xl font-semibold mt-6" style="color: var(--accent)">🚀 Gelecek Vizyonumuz</h2>
+            <p class="mt-2 text-[var(--text-secondary)] leading-relaxed">
+                Synapic, sadece bir arama motoru değil, bir devrimdir.  
+                Daha hızlı, daha akıllı ve daha güvenli internet aramaları için buradayız.  
+            </p>
 
-        <h2 class="text-2xl font-semibold mt-6 text-yellow-400">📢 Senin Sesin Önemli!</h2>
-        <p class="mt-2 text-gray-300 leading-relaxed">
-            Synapic topluluğuna katılarak, internetin geleceğini şekillendiren bir parçan olabilirsin.  
-            Özgür, açık ve bağımsız bir internet için bizimle birlikte ol!  
-        </p>
-    </div>
+            <h2 class="text-2xl font-semibold mt-6" style="color: var(--accent)">📢 Senin Sesin Önemli!</h2>
+            <p class="mt-2 text-[var(--text-secondary)] leading-relaxed">
+                Synapic topluluğuna katılarak, internetin geleceğini şekillendiren bir parçan olabilirsin.  
+                Özgür, açık ve bağımsız bir internet için bizimle birlikte ol!  
+            </p>
+        </div>
 
-    <footer class="mt-10 text-gray-500 text-sm">
-        <p>&copy; 2025 Synapic Search. Tüm hakları saklıdır.</p>
-    </footer>
+        <footer class="mt-10 text-center text-[var(--text-secondary)] text-sm">
+            <p>&copy; 2025 Synapic Search. Tüm hakları saklıdır.</p>
+        </footer>
+    </main>
 
+    <script>
+        // Tema Değiştirme
+        const themeToggle = document.getElementById('themeToggle');
+        let isDark = true;
+
+        themeToggle.addEventListener('click', () => {
+            isDark = !isDark;
+            document.body.classList.toggle('light-theme', !isDark);
+            themeToggle.innerHTML = isDark 
+                ? '<i class="fa-solid fa-moon text-[var(--accent)]"></i>' 
+                : '<i class="fa-solid fa-sun text-[var(--accent)]"></i>';
+        });
+    </script>
 </body>
 </html>
