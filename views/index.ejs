@@ -1,157 +1,659 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Synapic Search</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <title>Synapic Search</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <meta charset="utf-8" />
+  <style>
+    :root {
+      --bg-primary: #121212;
+      --bg-secondary: #1e1e1e;
+      --bg-tertiary: #252525;
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.7);
+      --accent: #7289fd;
+      --accent-hover: #5a6fd8;
+      --accent-glow: rgba(114, 137, 253, 0.4);
+      --button-bg: rgba(255, 255, 255, 0.08);
+      --button-hover: rgba(255, 255, 255, 0.12);
+      --button-active: rgba(114, 137, 253, 0.2);
+      --shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+      --blur-bg: rgba(18, 18, 18, 0.8);
+      --transition-time: 0.4s;
+      --glow: 0 0 20px var(--accent-glow);
+    }
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" 
-          integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" 
-          crossorigin="anonymous" referrerpolicy="no-referrer" />
+    .light-theme {
+      --bg-primary: #f5f7fa;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #eaeef3;
+      --text-primary: #1f2937;
+      --text-secondary: rgba(31, 41, 55, 0.7);
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-glow: rgba(99, 102, 241, 0.3);
+      --button-bg: #eaeef3;
+      --button-hover: #dfe3eb;
+      --button-active: rgba(99, 102, 241, 0.2);
+      --shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+      --blur-bg: rgba(245, 247, 250, 0.8);
+    }
 
-    <style>
-        body {
-            background-color: #1e1e1e;
-        }
-
-        .gradient-button {
-            @apply text-gray-900 bg-gradient-to-r from-red-200 via-red-300 to-yellow-200 hover:bg-gradient-to-bl 
-            focus:ring-4 focus:outline-none focus:ring-yellow-400 dark:focus:ring-red-400 
-            font-medium rounded-lg text-sm px-5 py-2.5 text-center border-2 border-yellow-400;
-        }
-
-        .sidebar {
-            width: 50vw;
-            height: 100vh;
-            position: fixed;
-            top: 0;
-            right: -50vw;
-            background: #2a2a2a;
-            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.2);
-            transition: right 0.3s ease-in-out;
-            z-index: 50;
-        }
-
-        /* Arama çubuğunu kapatmak için */
-        .hidden-search {
-            transform: translateY(-60px);
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .search-transition {
-            transition: transform 0.3s ease, opacity 0.3s ease;
-        }
-    </style>
-</head>
-<body class="flex flex-col items-center justify-center min-h-screen text-white relative">
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     
-    <div class="absolute top-4 right-4">
-        <button id="menuButton" class="text-white text-2xl focus:outline-none">
-            <i class="fa-solid fa-bars"></i>
+    /* Yeni mobil stilleri */
+    @media (max-width: 680px) {
+      body {
+        padding: 0 12px;
+        justify-content: flex-start;
+        padding-top: 40px;
+      }
+
+      .menu-button {
+        top: 16px;
+        right: 16px;
+        width: 40px;
+        height: 40px;
+        font-size: 14px;
+      }
+
+      .logo-container img {
+        width: 150px;
+        height: 150px;
+      }
+
+      .search-input {
+        padding: 16px 20px;
+        padding-right: 80px;
+        font-size: 14px;
+        border-radius: 14px;
+      }
+
+      .voice-search {
+        right: 50px;
+        padding: 6px;
+      }
+
+      .search-icon {
+        right: 16px;
+        padding: 6px;
+      }
+
+      .categories-container {
+        gap: 6px;
+      }
+
+      .scroll-button {
+        display: none; /* Mobilde scroll butonları gizle */
+      }
+
+      .categories {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 8px 0;
+      }
+
+      .category-button {
+        padding: 10px 16px;
+        font-size: 12px;
+        border-radius: 12px;
+      }
+
+      .footer {
+        margin-top: 30px;
+        font-size: 11px;
+      }
+
+      .footer-links {
+        gap: 12px;
+      }
+
+      .overlay-content {
+        max-width: 90%;
+        padding: 24px;
+        border-radius: 20px;
+      }
+
+      .overlay-item {
+        margin: 12px 0;
+        padding: 14px;
+        font-size: 14px;
+      }
+    }
+
+    /* Çok küçük ekranlar için ek ayarlar */
+    @media (max-width: 480px) {
+      .search-input {
+        font-size: 13px;
+        padding: 14px 18px;
+        padding-right: 70px;
+      }
+
+      .voice-search {
+        right: 45px;
+      }
+
+      .category-button {
+        padding: 8px 12px;
+      }
+
+      .logo-container img {
+        width: 120px;
+        height: 120px;
+      }
+
+      .kagi-text {
+        font-size: 12px;
+      }
+    }
+
+    /* Dokunmatik efektler */
+    @media (hover: none) {
+      .menu-button:hover,
+      .category-button:hover,
+      .scroll-button:hover {
+        background: var(--button-bg);
+        transform: none;
+      }
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      transition: background-color var(--transition-time), color var(--transition-time);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      padding: 0 16px;
+      background-image: radial-gradient(circle at top right, rgba(114, 137, 253, 0.08), transparent 40%), 
+                        radial-gradient(circle at bottom left, rgba(114, 137, 253, 0.05), transparent 30%);
+    }
+
+    .light-theme {
+      background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 40%), 
+                        radial-gradient(circle at bottom left, rgba(99, 102, 241, 0.03), transparent 30%);
+    }
+
+    .menu-button {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      background: var(--button-bg);
+      border: none;
+      color: var(--text-primary);
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 1000;
+      box-shadow: var(--shadow);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .menu-button:hover {
+      background: var(--button-hover);
+      transform: scale(1.1);
+    }
+
+    .menu-button:active {
+      transform: scale(0.95);
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--blur-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      transform: scale(0);
+      transform-origin: top right;
+      transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      opacity: 0;
+    }
+
+    .overlay.active {
+      transform: scale(1);
+      opacity: 1;
+    }
+
+    .overlay-content {
+      text-align: center;
+      width: 100%;
+      max-width: 360px;
+      background-color: var(--bg-secondary);
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: var(--shadow);
+      transform: translateY(30px);
+      opacity: 0;
+      transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s;
+    }
+
+    .overlay.active .overlay-content {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .overlay-item {
+      margin: 16px 0;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-radius: 12px;
+      transition: all 0.3s;
+      color: var(--text-primary);
+      background: var(--button-bg);
+    }
+
+    .overlay-item:hover {
+      background: var(--button-hover);
+      transform: translateX(4px);
+    }
+
+    .search-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 680px;
+      gap: 30px;
+      animation: fadeInUp 0.8s ease-out forwards;
+    }
+
+    .logo-container {
+      text-align: center;
+      animation: logoEntrance 1s ease-out forwards;
+    }
+
+    .logo-container img {
+      width: 250px;
+      height: 250px;
+      margin-bottom: 15px;
+    }
+
+    .kagi-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+      opacity: 0.9;
+    }
+
+    .search-box {
+      position: relative;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 18px 24px;
+      padding-right: 100px;
+      border-radius: 18px;
+      border: none;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      font-size: 16px;
+      box-shadow: var(--shadow);
+      transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .search-input:focus {
+      box-shadow: 0 10px 40px rgba(114, 137, 253, 0.25);
+      outline: none;
+    }
+
+    .voice-search {
+      position: absolute;
+      right: 60px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 8px;
+      transition: all 0.3s;
+    }
+
+    .voice-search:hover {
+      color: var(--accent);
+      transform: translateY(-50%) scale(1.1);
+    }
+
+    .search-icon {
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      padding: 8px;
+    }
+
+    .categories-container {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      max-width: 100%;
+      gap: 10px;
+    }
+
+    .scroll-button {
+      background: var(--button-bg);
+      border: none;
+      color: var(--text-primary);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .scroll-button:hover {
+      background: var(--button-hover);
+      transform: scale(1.1);
+    }
+
+    .categories {
+      display: flex;
+      overflow-x: auto;
+      scroll-behavior: smooth;
+      gap: 12px;
+      padding: 10px 0;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .categories::-webkit-scrollbar {
+      display: none;
+    }
+
+    .category-button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 14px;
+      border: none;
+      cursor: pointer;
+      background: var(--button-bg);
+      color: var(--text-primary);
+      transition: all 0.3s;
+      flex-shrink: 0;
+    }
+
+    .category-button.active {
+      background: var(--button-active);
+      color: var(--accent);
+      font-weight: 600;
+      box-shadow: 0 6px 20px rgba(114, 137, 253, 0.2);
+    }
+
+    .category-button:hover {
+      background: var(--button-hover);
+    }
+
+    .footer {
+      margin-top: 60px;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    .footer-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .footer-link:hover {
+      color: var(--accent);
+    }
+
+    @keyframes logoEntrance {
+      0% { transform: scale(0.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes fadeInUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @media (max-width: 680px) {
+      .search-input {
+        padding: 16px 20px;
+        padding-right: 85px;
+        font-size: 15px;
+      }
+      
+      .voice-search {
+        right: 50px;
+      }
+      
+      .category-button {
+        padding: 10px 16px;
+        font-size: 13px;
+      }
+      
+      .logo-container img {
+        width: 200px;
+        height: 200px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="menu-button" id="menuButton">
+    <i class="fa-solid fa-bars"></i>
+  </button>
+
+  <div class="overlay" id="overlay">
+    <div class="overlay-content">
+      <div class="overlay-item" id="themeToggle">
+        <i class="fa-solid fa-moon"></i>
+        <span>Karanlık Tema</span>
+      </div>
+      <div class="overlay-item">
+        <i class="fa-solid fa-shield-halved"></i>
+        <a href="/manifesto"><span>Manifesto</span></a>
+      </div>
+    </div>
+  </div>
+
+  <div class="search-container">
+    <div class="logo-container">
+      <div class="logo-container">
+  <div class="synapic-logo">
+    <span>S</span>
+    <span>y</span>
+    <span>n</span>
+    <span>a</span>
+    <span>p</span>
+    <span>i</span>
+    <span>c</span>
+  </div>
+</div>
+
+<style>
+.synapic-logo {
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: -3px;
+  margin-bottom: 15px;
+  text-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+.synapic-logo span:nth-child(1) { color: #4285f4; }
+.synapic-logo span:nth-child(2) { color: #ea4335; }
+.synapic-logo span:nth-child(3) { color: #fbbc05; }
+.synapic-logo span:nth-child(4) { color: #4285f4; }
+.synapic-logo span:nth-child(5) { color: #34a853; }
+.synapic-logo span:nth-child(6) { color: #ea4335; }
+.synapic-logo span:nth-child(7) { color: #4285f4; }
+
+@media (max-width: 680px) {
+  .synapic-logo {
+    font-size: 40px;
+    letter-spacing: -2px;
+    margin-bottom: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .synapic-logo {
+    font-size: 32px;
+  }
+}
+</style>
+      <div class="kagi-text">Sadece Bir Tarayıcı Değil.</div>
+    </div>
+
+    <form id="searchForm" class="search-box" action="/search" method="GET">
+      <input type="text" action="/search" method="GET"
+             class="search-input" 
+             placeholder="Synapic Search En İyisidir..."
+             id="searchQuery"
+             name="query"
+             required>
+      <button type="button" id="voiceSearch" class="voice-search">
+        <i class="fa-solid fa-microphone"></i>
+      </button>
+      <button type="submit" class="search-icon">
+        <i class="fa-solid fa-search"></i>
+      </button>
+    </form>
+
+    <div class="categories-container">
+      <button class="scroll-button" id="scrollLeft">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <div class="categories" id="categories">
+        <button class="category-button active">
+          <i class="fa-solid fa-globe"></i>
+          <span>WEB</span>
         </button>
-    </div>
-
-    <div id="sidebar" class="sidebar p-6">
-    <button id="closeMenu" class="text-white text-2xl absolute top-4 right-4">
-        <i class="fa-solid fa-times"></i>
-    </button>
-
-    <div class="mt-10 text-white space-y-4"> <!-- space-y-4 butonlar arası boşluk bırakır -->
-        <a href="/manifesto">
-            <button id="manifestoButton" class="w-full flex items-center px-4 py-3 bg-gray-700 rounded-lg 
-                   hover:bg-gray-600 focus:ring-4 focus:ring-yellow-500">
-                <i class="fa-solid fa-book mr-3"></i> Manifesto
-            </button>
-        </a>
-
-        <a href="/iletisim">
-            <button id="contactButton" class="w-full flex items-center px-4 py-3 bg-gray-700 rounded-lg 
-                   hover:bg-gray-600 focus:ring-4 focus:ring-yellow-500 mt-4">
-                <i class="fa-solid fa-envelope mr-3"></i> İletişim
-            </button>
-        </a>
-    </div>
-    </div>
-
-    <div class="text-center mt-10">
-        <img src="https://raw.githubusercontent.com/devyigit/devyigit.github.io/refs/heads/main/%C4%B0mages/1738764999135.png" class="w-40 rounded-full" alt="Synapic">
-    </div>
-
-    <!-- Arama Kutusunu Saran Container -->
-    <div id="searchWrapper" class="mt-6 w-full max-w-lg search-transition">
-        <form id="searchForm" class="relative flex items-center" action="/search" method="GET">
-            <input type="text" id="searchQuery" name="query" placeholder="Hadi getirelim..." 
-                   class="w-full p-4 pl-12 pr-16 rounded-full bg-gray-800 text-white outline-none 
-                          focus:ring-2 focus:ring-yellow-500" required>
-            <i class="fa-solid fa-magnifying-glass absolute left-4 text-gray-400"></i>
-            <button type="button" id="voiceSearch" class="absolute right-12 text-yellow-500">
-                <i class="fa-solid fa-microphone"></i>
-            </button>
-            <button type="submit" class="absolute right-4 text-yellow-500">
-                <i class="fa-solid fa-search"></i>
-            </button>
-        </form>
-    </div>
-
-    <div class="mt-4 w-full max-w-lg flex justify-center space-x-3">
-        <button type="button" id="webSearch" class="text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-yellow-300 dark:focus:ring-yellow-800 shadow-lg shadow-yellow-500/50 dark:shadow-lg dark:shadow-yellow-800/80 font-medium rounded-lg text-xs px-3 py-1.5 text-center me-2 mb-2">
-            <i class="fa-solid fa-globe mr-2"></i> Web
+        <button class="category-button">
+          <i class="fa-solid fa-image"></i>
+          <span>Resimler</span>
         </button>
-        <button type="button" id="imageSearch" class="text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-yellow-300 dark:focus:ring-yellow-800 shadow-lg shadow-yellow-500/50 dark:shadow-lg dark:shadow-yellow-800/80 font-medium rounded-lg text-xs px-3 py-1.5 text-center me-2 mb-2">
-            <i class="fa-solid fa-image mr-2"></i> Görseller
-        </button>
-        <button type="button" id="shoppingSearch" class="text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-yellow-300 dark:focus:ring-yellow-800 shadow-lg shadow-yellow-500/50 dark:shadow-lg dark:shadow-yellow-800/80 font-medium rounded-lg text-xs px-3 py-1.5 text-center me-2 mb-2">
-            <i class="fa-solid fa-cart-shopping mr-2"></i> Alışveriş
-        </button>
-        <button type="button" id="webSearch" class="text-white bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 hover:bg-gradient-to-br focus:ring-4 focus:outline-none focus:ring-yellow-300 dark:focus:ring-yellow-800 shadow-lg shadow-yellow-500/50 dark:shadow-lg dark:shadow-yellow-800/80 font-medium rounded-lg text-xs px-3 py-1.5 text-center me-2 mb-2">
-            <i class="fa-solid fa-globe mr-2"></i> Wiki
-        </button>
+      </div>
+      <button class="scroll-button" id="scrollRight">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
     </div>
+  </div>
 
-    <script>
-        const sidebar = document.getElementById("sidebar");
-        const searchWrapper = document.getElementById("searchWrapper");
-        
-        document.getElementById("menuButton").addEventListener("click", function () {
-            sidebar.style.right = "0";
-            searchWrapper.classList.add("hidden-search"); // Arama kutusunu gizle
-        });
+  <div class="footer">
+    <p>©2024 Aperture Labs.</p>
+    <div class="footer-links">
+      <a href="/manifesto" class="footer-link">Manifesto</a>
+    </div>
+  </div>
 
-        document.getElementById("closeMenu").addEventListener("click", function () {
-            sidebar.style.right = "-50vw";
-            searchWrapper.classList.remove("hidden-search"); // Arama kutusunu geri getir
-        });
+  <script>
+    // Menu Toggle
+    const menuButton = document.getElementById('menuButton');
+    const overlay = document.getElementById('overlay');
 
-        function performSearch(type) {
-            const query = document.getElementById("searchQuery").value.trim();
-            let url = `/search?type=${type}`;
-            if (query) {
-                url += `&query=${encodeURIComponent(query)}`; // query parametresini URL'ye ekle
-            }
-            window.location.href = url;
-        }
+    menuButton.addEventListener('click', () => {
+      overlay.classList.toggle('active');
+      menuButton.innerHTML = overlay.classList.contains('active') 
+        ? '<i class="fa-solid fa-xmark"></i>' 
+        : '<i class="fa-solid fa-bars"></i>';
+    });
 
-        document.getElementById("webSearch").addEventListener("click", () => performSearch("web"));
-        document.getElementById("imageSearch").addEventListener("click", () => performSearch("images"));
-        document.getElementById("shoppingSearch").addEventListener("click", () => performSearch("shopping"));
+    // Theme Toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const body = document.body;
+    let darkTheme = true;
 
-        const voiceButton = document.getElementById("voiceSearch");
+    themeToggle.addEventListener('click', () => {
+      darkTheme = !darkTheme;
+      body.classList.toggle('light-theme', !darkTheme);
+      themeToggle.innerHTML = darkTheme
+        ? '<i class="fa-solid fa-moon"></i><span>Karanlık Tema</span>'
+        : '<i class="fa-solid fa-sun"></i><span>Açık Tema</span>';
+    });
 
-        voiceButton.addEventListener("click", () => {
-            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-            recognition.lang = "tr-TR"; 
-            recognition.start();
+    // Category Buttons
+    document.querySelectorAll('.category-button').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.category-button').forEach(btn => 
+          btn.classList.remove('active'));
+        button.classList.add('active');
+      });
+    });
 
-            recognition.onresult = (event) => {
-                document.getElementById("searchQuery").value = event.results[0][0].transcript;
-            };
+    // Horizontal Scroll
+    const categories = document.getElementById('categories');
+    document.getElementById('scrollLeft').addEventListener('click', () => {
+      categories.scrollBy({ left: -200, behavior: 'smooth' });
+    });
+    document.getElementById('scrollRight').addEventListener('click', () => {
+      categories.scrollBy({ left: 200, behavior: 'smooth' });
+    });
 
-            recognition.onerror = (event) => {
-                console.error("Sesli arama hatası:", event.error);
-            };
-        });
-    </script>
+    // Voice Search
+    const voiceButton = document.getElementById('voiceSearch');
+    voiceButton.addEventListener('click', () => {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = 'tr-TR';
+      recognition.start();
+      
+      recognition.onresult = (e) => {
+        document.getElementById('searchQuery').value = e.results[0][0].transcript;
+      };
+    });
+
+    // Form Submit (DÜZELTİLMİŞ KISIM)
+    document.getElementById('searchForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const activeButton = document.querySelector('.category-button.active');
+      const categoryButtons = Array.from(document.querySelectorAll('.category-button'));
+      const categoryIndex = categoryButtons.indexOf(activeButton);
+      const types = ['web', 'images', 'news'];
+      const query = document.getElementById('searchQuery').value.trim();
+      
+      if (query) {
+        let url = `/search?type=${types[categoryIndex]}&query=${encodeURIComponent(query)}`;
+        window.location.href = url;
+      }
+    });
+</script>
 </body>
 </html>
