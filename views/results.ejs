@@ -1,197 +1,305 @@
-<!DOCTYPE html><html lang="tr">
+<!DOCTYPE html>
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arama Sonuçları - Synapic Search</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
-          integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
-          crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/js/all.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #1e1e1e; color: white; }
-        .active-tab { background-color: #f59e0b; color: black; }
-        .result-card { background-color: #2a2a2a; border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            z-index: 50;
+        :root {
+            --bg-primary: #121212;
+            --bg-secondary: #1e1e1e;
+            --bg-tertiary: #252525;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --accent: #7289fd;
+            --accent-hover: #5a6fd8;
+            --accent-glow: rgba(114, 137, 253, 0.4);
+            --button-bg: rgba(255, 255, 255, 0.08);
+            --button-hover: rgba(255, 255, 255, 0.12);
+            --button-active: rgba(114, 137, 253, 0.2);
+            --shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            --blur-bg: rgba(18, 18, 18, 0.8);
         }
-        .modal img {
-            max-width: 80%;
-            max-height: 80%;
-            border-radius: 10px;
+
+        .light-theme {
+            --bg-primary: #f5f7fa;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #eaeef3;
+            --text-primary: #1f2937;
+            --text-secondary: rgba(31, 41, 55, 0.7);
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --button-bg: #eaeef3;
+            --button-hover: #dfe3eb;
+            --button-active: rgba(99, 102, 241, 0.2);
+            --shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            --blur-bg: rgba(245, 247, 250, 0.8);
         }
-        .modal p {
-            color: white;
-            margin-top: 10px;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 5px 10px;
-            border-radius: 5px;
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            background-image: radial-gradient(circle at top right, rgba(114, 137, 253, 0.08), transparent 40%), 
+                            radial-gradient(circle at bottom left, rgba(114, 137, 253, 0.05), transparent 30%);
+            min-height: 100vh;
         }
-        /* New styles for images section */
-        .image-results {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 16px;
-            margin-top: 20px;
-            width: 100%;
+
+        .light-theme body {
+            background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 40%), 
+                            radial-gradient(circle at bottom left, rgba(99, 102, 241, 0.03), transparent 30%);
         }
-        .image-result {
-            position: relative;
-            aspect-ratio: 1/1;
-            overflow: hidden;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+
+        .result-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
             transition: transform 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        .image-result:hover {
-            transform: scale(1.03);
-            border-color: rgba(245, 158, 11, 0.5);
+
+        .image-result {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s ease;
+            background: var(--bg-secondary);
         }
-        .image-result img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            cursor: pointer;
+
+        .search-box {
+            background: var(--bg-secondary);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            box-shadow: var(--shadow);
         }
+
+        .active-tab {
+            background: var(--accent);
+            color: var(--text-primary) !important;
+            border-color: var(--accent) !important;
+        }
+
+        .modal {
+            background: var(--blur-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
         @media (max-width: 640px) {
-            .w-40 { width: 80px; height: 80px; }
-            .flex-col { flex-direction: column; }
-            .space-x-4 { margin-bottom: 10px; margin-right: 0; }
-            .image-results {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 12px;
+            .mobile-hidden {
+                display: none;
+            }
+            
+            .search-input {
+                font-size: 16px;
+                padding: 12px 20px;
             }
         }
     </style>
 </head>
-<body class="flex flex-col items-center min-h-screen">
-    <div class="text-center mt-10 w-full max-w-6xl px-4">
-        <div class="flex flex-col items-center mb-6">
-            <a href="/"><img src="https://raw.githubusercontent.com/devyigit/devyigit.github.io/refs/heads/main/%C4%B0mages/1738764999135.png" class="w-40 h-40 rounded-full mx-auto" alt="Synapic"></a>
+<body class="min-h-screen">
+    <!-- Responsive Header -->
+    <nav class="sticky top-0 bg-[var(--bg-primary)] border-b border-[rgba(255,255,255,0.1)] backdrop-blur-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <a href="/" class="flex items-center space-x-2">
+                  <div class="logo-container">
+  <div class="synapic-logo">
+    <span>S</span>
+    <span>y</span>
+    <span>n</span>
+    <span>a</span>
+    <span>p</span>
+    <span>i</span>
+    <span>c</span>
+  </div>
+</div>
+
+<style>
+.synapic-logo {
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -3px;
+  margin-bottom: 15px;
+  text-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+.synapic-logo span:nth-child(1) { color: #4285f4; }
+.synapic-logo span:nth-child(2) { color: #ea4335; }
+.synapic-logo span:nth-child(3) { color: #fbbc05; }
+.synapic-logo span:nth-child(4) { color: #4285f4; }
+.synapic-logo span:nth-child(5) { color: #34a853; }
+.synapic-logo span:nth-child(6) { color: #ea4335; }
+.synapic-logo span:nth-child(7) { color: #4285f4; }
+
+@media (max-width: 680px) {
+  .synapic-logo {
+    font-size: 25px;
+    letter-spacing: -2px;
+    margin-bottom: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .synapic-logo {
+    font-size: 32px;
+  }
+}
+</style>
+                </a>
+                <div class="flex items-center space-x-4">
+                    <button id="themeToggle" class="p-2 rounded-full hover:bg-[var(--button-bg)] transition-colors">
+                        <i class="fa-solid fa-moon text-[var(--accent)] text-sm sm:text-base"></i>
+                    </button>
+                </div>
+            </div>
         </div>
-        <form method="GET" action="/search">
-            <div class="relative flex items-center mb-8">
-                <input type="text" name="query" value="<%= query %>" placeholder="Yeni arama..." 
-                       class="w-full p-4 pl-12 rounded-full bg-gray-800 text-white outline-none focus:ring-2 focus:ring-yellow-500" />
-                <i class="fa-solid fa-magnifying-glass absolute left-4 text-gray-400"></i>
-            </div>
-            <div class="flex flex-wrap justify-center gap-4 mb-6">
-                <button type="submit" name="type" value="web"
-                        class="px-6 py-2 rounded-full border-2 border-gray-500 text-white hover:bg-gray-700 <%= type === 'web' ? 'active-tab' : '' %>">
-                    Web
-                </button>
-                <button type="submit" name="type" value="image"
-                    class="px-6 py-2 rounded-full border-2 border-gray-500 text-white hover:bg-gray-700 <%= type === 'image' ? 'active-tab' : '' %>">
-                    Görseller
-                </button>
-                <button type="submit" name="type" value="news"
-                    class="px-6 py-2 rounded-full border-2 border-gray-500 text-white hover:bg-gray-700 <%= type === 'news' ? 'active-tab' : '' %>">
-                    Haberler
-                </button>
-                <button type="submit" name="type" value="wiki"
-                    class="px-6 py-2 rounded-full border-2 border-gray-500 text-white hover:bg-gray-700 <%= type === 'wiki' ? 'active-tab' : '' %>">
-                    Wiki
-                </button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <!-- Responsive Search Box -->
+        <form method="GET" action="/search" class="mb-6 sm:mb-8">
+            <div class="search-box rounded-full p-1 sm:p-2 transition-all max-w-full mx-auto">
+                <div class="flex items-center">
+                    <input type="text" 
+                           name="query" 
+                           value="<%= query %>" 
+                           placeholder="Synapic'ta ara..." 
+                           class="w-full bg-transparent outline-none px-3 sm:px-4 py-2 text-sm sm:text-base text-[var(--text-primary)]">
+                    <button type="submit" class="p-2 rounded-full hover:bg-[var(--button-bg)]">
+                        <i class="fa-solid fa-search text-[var(--text-secondary)] text-sm sm:text-base"></i>
+                    </button>
+                </div>
             </div>
 
-            <!-- Web sonuçları -->
-            <% if (type === 'web' && results && results.length > 0) { %>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <% results.forEach(r => { %>
-                        <div class="result-card">
-                            <div class="flex items-center">
-                                <a href="<%= r.link || r.url %>" target="_blank" class="text-lg font-semibold text-blue-400 hover:underline">
-                                    <%= r.title %>
-                                </a>
-                                <% if ((r.link || r.url || '').toLowerCase().endsWith('.pdf')) { %>
-                                    <span class="ml-2 px-2 py-1 bg-gray-700 bg-opacity-70 rounded text-xs text-gray-300">PDF</span>
-                                <% } %>
-                            </div>
-                            <p class="text-sm text-gray-300 mt-1"><%= r.snippet %></p>
-                            <p class="text-xs text-gray-500 mt-1"><%= r.link || r.url %></p>
-                        </div>
-                    <% }) %>
-                </div>
-            <% } %>
-
-            <!-- Görsel sonuçları - YENİ TASARIM -->
-            <% if (type === 'image' && images && images.length > 0) { %>
-                <div class="image-results">
-                    <% images.forEach(function(img) { %>
-                        <div class="image-result" onclick="openModal('<%= img.image %>')">
-                            <img src="<%= img.image %>" alt="<%= img.title || 'Resim' %>" />
-                        </div>
-                    <% }); %>
-                </div>
-            <% } else if (type === 'image') { %>
-                <p>Görsel bulunamadı.</p>
-            <% } %>
-
-            <!-- Haber sonuçları -->
-            <% if (type === 'news' && newsResults && newsResults.length > 0) { %>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <% newsResults.forEach(r => { %>
-                        <div class="result-card">
-                            <% if (r.image) { %>
-                                <img src="<%= r.image %>" alt="<%= r.news %>" class="w-full h-40 object-contain mb-2">
-                            <% } %>
-                            <a href="<%= r.link %>" target="_blank" class="text-lg font-semibold text-blue-400 hover:underline">
-                                <%= r.news %>
-                            </a>
-                            <p class="text-xs text-gray-500 mt-1"><%= r.link %></p>
-                        </div>
-                    <% }) %>
-                </div>
-            <% } else if (type === 'news') { %>
-                <p>Haber bulunamadı.</p>
-            <% } %>
-
-            <!-- Wiki sonucu sadece "wiki" sekmesinde gösterilecek -->
-            <% if (type === 'wiki' && wiki) { %>
-                <div class="w-full max-w-lg px-4 mt-4 mx-auto">
-                    <div class="result-card border-l-4 border-yellow-500">
-                        <h2 class="text-xl font-bold text-yellow-400 mb-2">
-                            <i class="fa-brands fa-wikipedia-w mr-2"></i><%= wiki.title %>
-                        </h2>
-                        <% if (wiki.img) { %>
-                            <img src="<%= wiki.img %>" alt="<%= wiki.title %>" class="rounded-lg mb-4">
-                        <% } %>
-                        <p class="text-gray-300 mb-2"><%= wiki.summary %></p>
-                        <a href="<%= wiki.url %>" target="_blank" class="text-blue-400 hover:underline">Vikipedi'de Görüntüle</a>
-                    </div>
-                </div>
-            <% } %>
+            <!-- Responsive Tabs -->
+            <div class="flex flex-wrap justify-center gap-2 sm:gap-4 mt-3 sm:mt-4">
+                <% ['web', 'image', 'wiki'].forEach(tab => { %>
+                    <button type="submit" 
+                            name="type" 
+                            value="<%= tab %>" 
+                            class="px-3 py-1 sm:px-5 sm:py-2 rounded-full border text-xs sm:text-sm font-medium transition-all 
+                                   <%= type === tab ? 'active-tab' : 'border-[var(--button-bg)] text-[var(--text-secondary)] hover:border-[var(--accent)]' %>">
+                        <%= { web: 'Web', image: 'Görseller', wiki: 'Wiki' }[tab] %>
+                    </button>
+                <% }) %>
+            </div>
         </form>
-    </div>
 
-    <!-- Resim Modal -->
-    <div id="imageModal" class="modal" onclick="closeModal()">
-        <img id="modalImage" src="" alt="Büyütülmüş Görsel">
-        <p id="imageUrl"></p>
-        <button class="mt-4 px-4 py-2 bg-yellow-500 text-black rounded-full hover:bg-yellow-600 focus:outline-none">
-            Kapat
-        </button>
+        <!-- Responsive Results -->
+        <div class="space-y-4 sm:space-y-6">
+            <!-- Web Results -->
+            <% if (type === 'web' && results.length) { %>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    <% results.forEach(r => { %>
+                        <a href="<%= r.link %>" target="_blank" class="result-card p-4 sm:p-5 block hover:bg-[var(--bg-tertiary)]">
+                            <div class="flex items-start mb-2">
+                                <div class="flex-1">
+                                    <h3 class="font-semibold text-[var(--accent)] text-sm sm:text-base"><%= r.title %></h3>
+                                    <p class="text-xs sm:text-sm text-[var(--text-secondary)] mt-1"><%= r.snippet %></p>
+                                </div>
+                                <% if (r.link.includes('.pdf')) { %>
+    <span class="ml-2 px-2 py-1 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] font-medium text-[10px] sm:text-xs inline-block border border-[var(--accent)]/30">
+    PDF
+</span>
+<% } %>
+                            </div>
+                            <p class="text-[10px] sm:text-xs text-[var(--text-secondary)] truncate"><%= r.link %></p>
+                        </a>
+                    <% }) %>
+                </div>
+            <% } %>
+
+            <!-- Image Results -->
+            <% if (type === 'image' && images.length) { %>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
+                    <% images.forEach(img => { %>
+                        <div class="image-result rounded-lg overflow-hidden cursor-pointer aspect-square hover:opacity-90" 
+                             onclick="openModal('<%= img.image %>')">
+                            <img src="<%= img.image %>" 
+                                 alt="<%= img.title %>" 
+                                 class="w-full h-full object-cover">
+                        </div>
+                    <% }) %>
+                </div>
+            <% } %>
+
+            <!-- Wiki Result -->
+            <% if (type === 'wiki' && wiki) { %>
+                <div class="result-card p-4 sm:p-5 max-w-3xl mx-auto">
+                    <div class="flex items-center mb-3 sm:mb-4">
+                        <i class="fa-brands fa-wikipedia-w text-xl sm:text-2xl text-[var(--accent)] mr-2 sm:mr-3"></i>
+                        <h1 class="text-xl sm:text-2xl font-bold"><%= wiki.title %></h1>
+                    </div>
+                    <% if (wiki.img) { %>
+                        <img src="<%= wiki.img %>" 
+                             alt="<%= wiki.title %>" 
+                             class="w-full max-h-48 sm:max-h-64 object-cover rounded-lg mb-3 sm:mb-4">
+                    <% } %>
+                    <div class="prose prose-invert max-w-none text-sm sm:text-base">
+                        <%= wiki.summary %>
+                    </div>
+                    <a href="<%= wiki.url %>" 
+                       target="_blank" 
+                       class="inline-block mt-3 sm:mt-4 text-[var(--accent)] hover:underline text-sm sm:text-base">
+                        Devamını oku →
+                    </a>
+                </div>
+            <% } %>
+
+            <!-- No Results -->
+            <% if ((type === 'web' && !results.length) || 
+                   (type === 'image' && !images.length)) { %>
+                <div class="text-center py-12 sm:py-20 text-[var(--text-secondary)]">
+                    <i class="fa-solid fa-magnifying-glass mb-3 sm:mb-4 text-2xl sm:text-3xl"></i>
+                    <p class="text-sm sm:text-base">"<%= query %>" için sonuç bulunamadı</p>
+                </div>
+            <% } %>
+        </div>
+    </main>
+
+    <!-- Responsive Modal -->
+    <div id="imageModal" class="modal fixed inset-0 hidden items-center justify-center" onclick="closeModal()">
+        <div class="max-w-[95%] sm:max-w-4xl w-full p-2 sm:p-4">
+            <img id="modalImage" class="rounded-lg shadow-xl max-h-[70vh] sm:max-h-[80vh] mx-auto object-contain border-2 border-[var(--bg-tertiary)]">
+            <div class="mt-3 sm:mt-4 text-center">
+                <button onclick="closeModal()" 
+                        class="px-4 py-2 sm:px-5 sm:py-2 rounded-full bg-[var(--accent)] text-[var(--text-primary)] font-medium text-sm sm:text-base hover:bg-[var(--accent-hover)] transition-colors">
+                    Kapat
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
-        function openModal(imageUrl) {
-            document.getElementById("modalImage").src = imageUrl;
-            document.getElementById("imageUrl").textContent = imageUrl.replace("https://", "").replace("http://", "");
-            document.getElementById("imageModal").style.display = "flex";
+        // Tema Değiştirme
+        const themeToggle = document.getElementById('themeToggle');
+        let isDark = true;
+
+        themeToggle.addEventListener('click', () => {
+            isDark = !isDark;
+            document.body.classList.toggle('light-theme', !isDark);
+            themeToggle.innerHTML = isDark 
+                ? '<i class="fa-solid fa-moon text-[var(--accent)]"></i>' 
+                : '<i class="fa-solid fa-sun text-[var(--accent)]"></i>';
+        });
+
+        // Modal Fonksiyonları
+        function openModal(src) {
+            document.getElementById('modalImage').src = src;
+            document.getElementById('imageModal').style.display = 'flex';
         }
 
         function closeModal() {
-            document.getElementById("imageModal").style.display = "none";
+            document.getElementById('imageModal').style.display = 'none';
         }
+
+        // ESC ile modalı kapatma
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
     </script>
 </body>
 </html>
