@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arama Sonuçları - Synapic Search</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/js/all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/js/all.min.js" integrity="sha512-EVv84Mr4kqVGRNSgIGL/F/aIDqb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -14,12 +14,13 @@
             --bg-tertiary: #252525;
             --text-primary: #ffffff;
             --text-secondary: rgba(255, 255, 255, 0.7);
-            --accent: #7289fd;
+            --accent: #7289fd; /* Discord-like purple */
             --accent-hover: #5a6fd8;
             --accent-glow: rgba(114, 137, 253, 0.4);
             --button-bg: rgba(255, 255, 255, 0.08);
             --button-hover: rgba(255, 255, 255, 0.12);
             --button-active: rgba(114, 137, 253, 0.2);
+            --border-color: rgba(255, 255, 255, 0.1);
             --shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
             --blur-bg: rgba(18, 18, 18, 0.8);
         }
@@ -30,12 +31,13 @@
             --bg-tertiary: #eaeef3;
             --text-primary: #1f2937;
             --text-secondary: rgba(31, 41, 55, 0.7);
-            --accent: #6366f1;
+            --accent: #6366f1; /* Indigo */
             --accent-hover: #4f46e5;
             --accent-glow: rgba(99, 102, 241, 0.3);
             --button-bg: #eaeef3;
             --button-hover: #dfe3eb;
             --button-active: rgba(99, 102, 241, 0.2);
+            --border-color: rgba(0, 0, 0, 0.1);
             --shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
             --blur-bg: rgba(245, 247, 250, 0.8);
         }
@@ -44,262 +46,393 @@
             background-color: var(--bg-primary);
             color: var(--text-primary);
             font-family: 'Inter', sans-serif;
-            background-image: radial-gradient(circle at top right, rgba(114, 137, 253, 0.08), transparent 40%), 
+            background-image: radial-gradient(circle at top right, rgba(114, 137, 253, 0.08), transparent 40%),
                             radial-gradient(circle at bottom left, rgba(114, 137, 253, 0.05), transparent 30%);
             min-height: 100vh;
         }
 
         .light-theme body {
-            background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 40%), 
+            background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 40%),
                             radial-gradient(circle at bottom left, rgba(99, 102, 241, 0.03), transparent 30%);
         }
 
+        /* Card Styling (Used for Web, News, Video) */
         .result-card {
             background: var(--bg-secondary);
             border-radius: 12px;
             box-shadow: var(--shadow);
-            transition: transform 0.2s ease;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.2s ease, background-color 0.2s ease;
+            border: 1px solid var(--border-color);
+            overflow: hidden; /* Ensures content respects border radius */
+        }
+        .result-card:hover {
+             background: var(--bg-tertiary);
+             transform: translateY(-2px);
         }
 
         .image-result {
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
             transition: all 0.2s ease;
             background: var(--bg-secondary);
+            border-radius: 8px; /* Slightly different radius for images */
+        }
+        .image-result:hover {
+            transform: scale(1.03);
+            border-color: var(--accent);
         }
 
-        .search-box {
+        .search-box-container {
             background: var(--bg-secondary);
-            border: 2px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--border-color);
             box-shadow: var(--shadow);
+            transition: border-color 0.2s ease;
+        }
+        .search-box-container:focus-within {
+            border-color: var(--accent);
         }
 
         .active-tab {
             background: var(--accent);
-            color: var(--text-primary) !important;
+            color: white !important; /* Ensure text is white on active tab */
             border-color: var(--accent) !important;
+        }
+
+        .pagination a, .pagination span {
+            padding: 8px 16px;
+            margin: 0 5px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text-secondary);
+            background-color: var(--button-bg);
+            border: 1px solid var(--border-color);
+            transition: background-color 0.2s, color 0.2s;
+            font-size: 0.875rem;
+        }
+        .pagination a:hover {
+            background-color: var(--button-hover);
+            color: var(--text-primary);
+        }
+        .pagination .current {
+            background-color: var(--accent);
+            color: white;
+            border-color: var(--accent);
+            font-weight: 600;
         }
 
         .modal {
             background: var(--blur-bg);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
+            display: none; /* Initially hidden */
+            position: fixed;
+            inset: 0;
+            z-index: 50;
         }
 
+        /* Custom Logo Style */
+        .synapic-logo {
+          font-size: 28px; /* Adjusted size */
+          font-weight: 800;
+          letter-spacing: -2px;
+          text-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        }
+        .synapic-logo span:nth-child(1) { color: #4285f4; }
+        .synapic-logo span:nth-child(2) { color: #ea4335; }
+        .synapic-logo span:nth-child(3) { color: #fbbc05; }
+        .synapic-logo span:nth-child(4) { color: #4285f4; }
+        .synapic-logo span:nth-child(5) { color: #34a853; }
+        .synapic-logo span:nth-child(6) { color: #ea4335; }
+        .synapic-logo span:nth-child(7) { color: #4285f4; }
+
+        /* Prose styles for Wiki */
+        .prose { color: var(--text-secondary); }
+        .prose h1, .prose h2, .prose h3, .prose h4, .prose strong { color: var(--text-primary); }
+        .prose a { color: var(--accent); }
+        .prose a:hover { color: var(--accent-hover); }
+        .light-theme .prose { color: var(--text-secondary); }
+        .light-theme .prose h1, .light-theme .prose h2, .light-theme .prose h3, .light-theme .prose h4, .light-theme .prose strong { color: var(--text-primary); }
+        .light-theme .prose a { color: var(--accent); }
+        .light-theme .prose a:hover { color: var(--accent-hover); }
+
+        /* Ensure icons inside buttons inherit color */
+        button i { color: inherit; }
+
         @media (max-width: 640px) {
-            .mobile-hidden {
-                display: none;
-            }
-            
-            .search-input {
-                font-size: 16px;
-                padding: 12px 20px;
-            }
+            .synapic-logo { font-size: 24px; letter-spacing: -1.5px; }
+            .search-input { font-size: 16px; padding: 12px 16px; }
+            .pagination a, .pagination span { padding: 6px 12px; margin: 0 3px; font-size: 0.75rem; }
         }
     </style>
 </head>
 <body class="min-h-screen">
-    <!-- Responsive Header -->
-    <nav class="sticky top-0 bg-[var(--bg-primary)] border-b border-[rgba(255,255,255,0.1)] backdrop-blur-lg">
+    <nav class="sticky top-0 bg-[var(--bg-primary)] border-b border-[var(--border-color)] backdrop-blur-lg z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <a href="/" class="flex items-center space-x-2">
                   <div class="logo-container">
-  <div class="synapic-logo">
-    <span>S</span>
-    <span>y</span>
-    <span>n</span>
-    <span>a</span>
-    <span>p</span>
-    <span>i</span>
-    <span>c</span>
-  </div>
-</div>
-
-<style>
-.synapic-logo {
-  font-size: 40px;
-  font-weight: 800;
-  letter-spacing: -3px;
-  margin-bottom: 15px;
-  text-shadow: 0 4px 10px rgba(0,0,0,0.15);
-}
-
-.synapic-logo span:nth-child(1) { color: #4285f4; }
-.synapic-logo span:nth-child(2) { color: #ea4335; }
-.synapic-logo span:nth-child(3) { color: #fbbc05; }
-.synapic-logo span:nth-child(4) { color: #4285f4; }
-.synapic-logo span:nth-child(5) { color: #34a853; }
-.synapic-logo span:nth-child(6) { color: #ea4335; }
-.synapic-logo span:nth-child(7) { color: #4285f4; }
-
-@media (max-width: 680px) {
-  .synapic-logo {
-    font-size: 25px;
-    letter-spacing: -2px;
-    margin-bottom: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  .synapic-logo {
-    font-size: 32px;
-  }
-}
-</style>
+                      <div class="synapic-logo">
+                        <span>S</span><span>y</span><span>n</span><span>a</span><span>p</span><span>i</span><span>c</span>
+                      </div>
+                  </div>
                 </a>
-                <div class="flex items-center space-x-4">
-                    <button id="themeToggle" class="p-2 rounded-full hover:bg-[var(--button-bg)] transition-colors">
-                        <i class="fa-solid fa-moon text-[var(--accent)] text-sm sm:text-base"></i>
-                    </button>
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <button id="themeToggle" class="p-2 rounded-full hover:bg-[var(--button-bg)] transition-colors text-[var(--accent)] text-lg">
+                        <i class="fa-solid fa-moon"></i> </button>
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <!-- Responsive Search Box -->
         <form method="GET" action="/search" class="mb-6 sm:mb-8">
-            <div class="search-box rounded-full p-1 sm:p-2 transition-all max-w-full mx-auto">
+            <div class="search-box-container rounded-full p-1 sm:p-2 max-w-3xl mx-auto">
                 <div class="flex items-center">
-                    <input type="text" 
-                           name="query" 
-                           value="<%= query %>" 
-                           placeholder="Synapic'ta ara..." 
-                           class="w-full bg-transparent outline-none px-3 sm:px-4 py-2 text-sm sm:text-base text-[var(--text-primary)]">
-                    <button type="submit" class="p-2 rounded-full hover:bg-[var(--button-bg)]">
-                        <i class="fa-solid fa-search text-[var(--text-secondary)] text-sm sm:text-base"></i>
+                    <input type="text"
+                           name="query"
+                           value="<%= query %>"
+                           placeholder="Synapic'ta ara..."
+                           class="search-input w-full bg-transparent outline-none px-3 sm:px-5 py-2 text-sm sm:text-base text-[var(--text-primary)] placeholder-[var(--text-secondary)]">
+                    <button type="submit" class="p-2 rounded-full hover:bg-[var(--button-hover)] transition-colors mr-1">
+                        <i class="fa-solid fa-search text-[var(--text-secondary)] text-base sm:text-lg"></i>
                     </button>
                 </div>
             </div>
 
-            <!-- Responsive Tabs -->
-            <div class="flex flex-wrap justify-center gap-2 sm:gap-4 mt-3 sm:mt-4">
-                <% ['web', 'image', 'wiki'].forEach(tab => { %>
-                    <button type="submit" 
-                            name="type" 
-                            value="<%= tab %>" 
-                            class="px-3 py-1 sm:px-5 sm:py-2 rounded-full border text-xs sm:text-sm font-medium transition-all 
-                                   <%= type === tab ? 'active-tab' : 'border-[var(--button-bg)] text-[var(--text-secondary)] hover:border-[var(--accent)]' %>">
-                        <%= { web: 'Web', image: 'Görseller', wiki: 'Wiki' }[tab] %>
+            <div class="flex flex-wrap justify-center gap-2 sm:gap-3 mt-4 sm:mt-5">
+                 <% ['web', 'image', 'news', 'wiki', 'video'].forEach(tab => { %>
+                    <%
+                       const tabNames = {
+                           web: 'Web',
+                           image: 'Görseller',
+                           news: 'Haberler',
+                           wiki: 'Wiki',
+                           video: 'Videolar'
+                       };
+                    %>
+                    <button type="submit"
+                            name="type"
+                            value="<%= tab %>"
+                            class="px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border text-xs sm:text-sm font-medium transition-all
+                                   <%= type === tab ? 'active-tab' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] bg-[var(--button-bg)] hover:bg-[var(--button-hover)]' %>">
+                       <i class="fa-solid <%= {web: 'fa-globe', image: 'fa-image', news: 'fa-newspaper', wiki: 'fa-wikipedia-w', video: 'fa-video'}[tab] %> mr-1.5 opacity-80"></i>
+                        <%= tabNames[tab] %>
                     </button>
                 <% }) %>
             </div>
         </form>
 
-        <!-- Responsive Results -->
         <div class="space-y-4 sm:space-y-6">
-            <!-- Web Results -->
-            <% if (type === 'web' && results.length) { %>
+
+            <% if (type === 'web' && results && results.length > 0) { %>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <% results.forEach(r => { %>
-                        <a href="<%= r.link %>" target="_blank" class="result-card p-4 sm:p-5 block hover:bg-[var(--bg-tertiary)]">
-                            <div class="flex items-start mb-2">
-                                <div class="flex-1">
-                                    <h3 class="font-semibold text-[var(--accent)] text-sm sm:text-base"><%= r.title %></h3>
-                                    <p class="text-xs sm:text-sm text-[var(--text-secondary)] mt-1"><%= r.snippet %></p>
+                        <div class="result-card">
+                           <a href="<%= r.link || r.url %>" target="_blank" class="block p-4 sm:p-5 hover:bg-[var(--bg-tertiary)] rounded-lg">
+                                <div class="flex items-start mb-1.5">
+                                    <div class="flex-1">
+                                        <h3 class="font-semibold text-[var(--accent)] text-base sm:text-lg leading-tight hover:underline"><%= r.title %></h3>
+                                    </div>
+                                     <% if ((r.link || r.url || '').toLowerCase().endsWith('.pdf')) { %>
+                                        <span class="ml-2 mt-0.5 px-2 py-0.5 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] font-medium text-[10px] sm:text-xs inline-block border border-[var(--accent)]/20 flex-shrink-0">
+                                        PDF
+                                        </span>
+                                    <% } %>
                                 </div>
-                                <% if (r.link.includes('.pdf')) { %>
-    <span class="ml-2 px-2 py-1 rounded-full bg-[var(--accent)]/20 text-[var(--accent)] font-medium text-[10px] sm:text-xs inline-block border border-[var(--accent)]/30">
-    PDF
-</span>
-<% } %>
-                            </div>
-                            <p class="text-[10px] sm:text-xs text-[var(--text-secondary)] truncate"><%= r.link %></p>
-                        </a>
+                                <p class="text-xs sm:text-sm text-[var(--text-secondary)] mb-2 leading-relaxed"><%= r.snippet %></p>
+                                <p class="text-[10px] sm:text-xs text-[var(--text-secondary)]/70 truncate"><%= r.link || r.url %></p>
+                           </a>
+                        </div>
                     <% }) %>
                 </div>
+                 <% if ((results.length === 10 && (!start || parseInt(start) < 91)) || (start && parseInt(start) > 1)) { %>
+                    <div class="pagination flex justify-center mt-6 sm:mt-8">
+                        <% if (start && parseInt(start) > 1) { %>
+                            <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= Math.max(1, parseInt(start) - 10) %>"><i class="fa-solid fa-arrow-left mr-1.5"></i>Önceki</a>
+                        <% } %>
+                        <span class="current"><%= Math.ceil(parseInt(start || 1) / 10) %></span>
+                        <% if (results.length === 10 && (!start || parseInt(start) < 91)) { // Limit pagination example %>
+                            <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= (parseInt(start || 1)) + 10 %>">Sonraki<i class="fa-solid fa-arrow-right ml-1.5"></i></a>
+                        <% } %>
+                    </div>
+                <% } %>
             <% } %>
 
-            <!-- Image Results -->
-            <% if (type === 'image' && images.length) { %>
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
+            <% if (type === 'image' && images && images.length > 0) { %>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
                     <% images.forEach(img => { %>
-                        <div class="image-result rounded-lg overflow-hidden cursor-pointer aspect-square hover:opacity-90" 
+                        <div class="image-result rounded-lg overflow-hidden cursor-pointer aspect-square"
                              onclick="openModal('<%= img.image %>')">
-                            <img src="<%= img.image %>" 
-                                 alt="<%= img.title %>" 
-                                 class="w-full h-full object-cover">
+                            <img src="<%= img.image %>"
+                                 alt="<%= img.title || 'Resim' %>"
+                                 loading="lazy"
+                                 class="w-full h-full object-cover transition-transform duration-200 hover:scale-105">
                         </div>
                     <% }) %>
                 </div>
             <% } %>
 
-            <!-- Wiki Result -->
+             <% if (type === 'news' && newsResults && newsResults.length > 0) { %>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    <% newsResults.forEach(r => { %>
+                        <div class="result-card flex flex-col">
+                            <a href="<%= r.link %>" target="_blank" class="block hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors duration-200 flex-grow">
+                                <% if (r.image) { %>
+                                   <div class="aspect-video overflow-hidden">
+                                       <img src="<%= r.image %>" alt="<%= r.news %>" class="w-full h-full object-cover">
+                                   </div>
+                                <% } %>
+                                <div class="p-4 sm:p-5">
+                                    <h3 class="font-semibold text-[var(--text-primary)] text-base sm:text-lg mb-1.5 hover:text-[var(--accent)] leading-tight"><%= r.news %></h3>
+                                    <p class="text-[10px] sm:text-xs text-[var(--text-secondary)]/70 truncate"><%= r.link %></p>
+                                    <% if (r.source) { %>
+                                        <p class="text-xs text-[var(--text-secondary)] mt-2"><%= r.source %></p>
+                                    <% } %>
+                                </div>
+                           </a>
+                        </div>
+                    <% }) %>
+                </div>
+            <% } %>
+
             <% if (type === 'wiki' && wiki) { %>
-                <div class="result-card p-4 sm:p-5 max-w-3xl mx-auto">
+                <div class="result-card p-4 sm:p-6 max-w-3xl mx-auto border-l-4 border-[var(--accent)]">
                     <div class="flex items-center mb-3 sm:mb-4">
-                        <i class="fa-brands fa-wikipedia-w text-xl sm:text-2xl text-[var(--accent)] mr-2 sm:mr-3"></i>
-                        <h1 class="text-xl sm:text-2xl font-bold"><%= wiki.title %></h1>
+                        <i class="fab fa-wikipedia-w text-xl sm:text-2xl text-[var(--accent)] mr-2 sm:mr-3"></i>
+                        <h1 class="text-xl sm:text-2xl font-bold text-[var(--text-primary)]"><%= wiki.title %></h1>
                     </div>
                     <% if (wiki.img) { %>
-                        <img src="<%= wiki.img %>" 
-                             alt="<%= wiki.title %>" 
-                             class="w-full max-h-48 sm:max-h-64 object-cover rounded-lg mb-3 sm:mb-4">
+                        <img src="<%= wiki.img %>"
+                             alt="<%= wiki.title %>"
+                             class="w-full max-h-60 sm:max-h-72 object-cover rounded-lg mb-4 sm:mb-5 border border-[var(--border-color)]">
                     <% } %>
-                    <div class="prose prose-invert max-w-none text-sm sm:text-base">
-                        <%= wiki.summary %>
-                    </div>
-                    <a href="<%= wiki.url %>" 
-                       target="_blank" 
-                       class="inline-block mt-3 sm:mt-4 text-[var(--accent)] hover:underline text-sm sm:text-base">
-                        Devamını oku →
+                    <div class="prose max-w-none text-sm sm:text-base leading-relaxed">
+                        <p><%= wiki.summary %></p> </div>
+                    <a href="<%= wiki.url %>"
+                       target="_blank"
+                       class="inline-flex items-center mt-4 sm:mt-5 text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline text-sm sm:text-base font-medium group">
+                        Vikipedi'de Devamını Oku
+                        <i class="fa-solid fa-arrow-right ml-1.5 transform transition-transform duration-200 group-hover:translate-x-1"></i>
                     </a>
                 </div>
             <% } %>
 
-            <!-- No Results -->
-            <% if ((type === 'web' && !results.length) || 
-                   (type === 'image' && !images.length)) { %>
-                <div class="text-center py-12 sm:py-20 text-[var(--text-secondary)]">
-                    <i class="fa-solid fa-magnifying-glass mb-3 sm:mb-4 text-2xl sm:text-3xl"></i>
-                    <p class="text-sm sm:text-base">"<%= query %>" için sonuç bulunamadı</p>
+            <% if (type === 'video' && videos && videos.length > 0) { %>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    <% videos.forEach(video => { %>
+                        <div class="result-card flex flex-col">
+                            <a href="<%= video.url %>" target="_blank" class="block hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors duration-200 flex-grow">
+                                <div class="video-thumbnail relative aspect-video overflow-hidden">
+                                    <img src="<%= video.thumbnail %>" alt="<%= video.title %>" loading="lazy" class="w-full h-full object-cover">
+                                     <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 opacity-0 hover:opacity-100 transition-opacity duration-200">
+                                        <i class="fa-solid fa-play text-white text-3xl"></i>
+                                    </div>
+                                </div>
+                                <div class="p-4 sm:p-5">
+                                    <h3 class="font-semibold text-[var(--text-primary)] text-base sm:text-lg mb-1 hover:text-[var(--accent)] leading-tight"><%= video.title %></h3>
+                                    <p class="video-source text-xs sm:text-sm text-[var(--text-secondary)]"><%= video.source %></p>
+                                     </div>
+                            </a>
+                        </div>
+                    <% }); %>
                 </div>
             <% } %>
+
+            <%
+                let noResultsFound = false;
+                if (query) { // Only show "no results" if a query was actually made
+                    if (type === 'web' && (!results || results.length === 0)) noResultsFound = true;
+                    else if (type === 'image' && (!images || images.length === 0)) noResultsFound = true;
+                    else if (type === 'news' && (!newsResults || newsResults.length === 0)) noResultsFound = true;
+                    else if (type === 'wiki' && !wiki) noResultsFound = true;
+                    else if (type === 'video' && (!videos || videos.length === 0)) noResultsFound = true;
+                }
+             %>
+             <% if (noResultsFound) { %>
+                <div class="text-center py-16 sm:py-24 text-[var(--text-secondary)]">
+                    <i class="fa-solid fa-compass mb-4 text-4xl sm:text-5xl opacity-50"></i>
+                    <p class="text-base sm:text-lg font-medium text-[var(--text-primary)]">"<%= query %>" için sonuç bulunamadı.</p>
+                    <p class="text-sm sm:text-base mt-1">Farklı anahtar kelimeler deneyin veya arama türünü değiştirin.</p>
+                </div>
+            <% } %>
+
         </div>
     </main>
 
-    <!-- Responsive Modal -->
-    <div id="imageModal" class="modal fixed inset-0 hidden items-center justify-center" onclick="closeModal()">
-        <div class="max-w-[95%] sm:max-w-4xl w-full p-2 sm:p-4">
-            <img id="modalImage" class="rounded-lg shadow-xl max-h-[70vh] sm:max-h-[80vh] mx-auto object-contain border-2 border-[var(--bg-tertiary)]">
-            <div class="mt-3 sm:mt-4 text-center">
-                <button onclick="closeModal()" 
-                        class="px-4 py-2 sm:px-5 sm:py-2 rounded-full bg-[var(--accent)] text-[var(--text-primary)] font-medium text-sm sm:text-base hover:bg-[var(--accent-hover)] transition-colors">
-                    Kapat
-                </button>
-            </div>
+    <div id="imageModal" class="modal items-center justify-center" onclick="closeModalOnClickOutside(event)">
+         <div class="relative max-w-[95%] sm:max-w-4xl w-auto p-2 sm:p-4" onclick="event.stopPropagation()"> <img id="modalImage" class="rounded-lg shadow-xl max-h-[75vh] sm:max-h-[85vh] mx-auto object-contain block border-2 border-[var(--bg-tertiary)]">
+              <button onclick="closeModal()"
+                    class="absolute top-2 right-2 sm:top-3 sm:right-3 p-2 rounded-full bg-[var(--bg-secondary)]/80 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors z-10 leading-none">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <p id="imageUrl" class="text-center text-xs text-[var(--text-secondary)] mt-2 truncate px-4 break-all"></p>
         </div>
     </div>
 
+
     <script>
-        // Tema Değiştirme
+        // Theme Toggling
         const themeToggle = document.getElementById('themeToggle');
-        let isDark = true;
+        const themeIcon = themeToggle.querySelector('i');
+        // Check local storage or system preference
+        let isDark = localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+        function applyTheme(dark) {
+            if (dark) {
+                document.body.classList.remove('light-theme');
+                themeIcon.classList.remove('fa-sun');
+                themeIcon.classList.add('fa-moon');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.body.classList.add('light-theme');
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+                localStorage.setItem('theme', 'light');
+            }
+        }
 
         themeToggle.addEventListener('click', () => {
             isDark = !isDark;
-            document.body.classList.toggle('light-theme', !isDark);
-            themeToggle.innerHTML = isDark 
-                ? '<i class="fa-solid fa-moon text-[var(--accent)]"></i>' 
-                : '<i class="fa-solid fa-sun text-[var(--accent)]"></i>';
+            applyTheme(isDark);
         });
 
-        // Modal Fonksiyonları
+        // Apply initial theme on load
+        applyTheme(isDark);
+
+
+        // Modal Functions
+        const modal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
+        const imageUrlText = document.getElementById('imageUrl');
+
         function openModal(src) {
-            document.getElementById('modalImage').src = src;
-            document.getElementById('imageModal').style.display = 'flex';
+            modalImage.src = src;
+            // Clean up URL for display
+            imageUrlText.textContent = src.replace(/^https?:\/\//, '').split('?')[0];
+            modal.style.display = 'flex'; // Use flex to center content
+            document.body.style.overflow = 'hidden'; // Prevent background scroll
         }
 
         function closeModal() {
-            document.getElementById('imageModal').style.display = 'none';
+            modal.style.display = 'none';
+            modalImage.src = ''; // Clear src to prevent showing old image briefly
+            imageUrlText.textContent = '';
+            document.body.style.overflow = ''; // Restore background scroll
         }
 
-        // ESC ile modalı kapatma
+        // Close modal if clicked outside the image container
+        function closeModalOnClickOutside(event) {
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Close modal with ESC key
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeModal();
+            if (e.key === 'Escape' && modal.style.display === 'flex') {
+                closeModal();
+            }
         });
+
     </script>
 </body>
 </html>
