@@ -20,6 +20,8 @@ if [ -d "Synapic" ]; then
     
     naper install ejs > /dev/null 2>&1 && echo -e "${GREEN}ejs kuruldu ✅${RESET}"
     naper install axios > /dev/null 2>&1 && echo -e "${GREEN}axios kuruldu ✅${RESET}"
+    naper install dotenv > /dev/null 2>&1 && echo -e "${GREEN}dotenv kuruldu ✅${RESET}"
+    naper install axios > /dev/null 2>&1 && echo -e "${GREEN}axios kuruldu ✅${RESET}"
     naper install express > /dev/null 2>&1 && echo -e "${GREEN}express kuruldu ✅${RESET}"
     naper install cheerio > /dev/null 2>&1 && echo -e "${GREEN}cheerio kuruldu ✅${RESET}"
 
