@@ -305,7 +305,6 @@
 
             <% if (webResultsFound || showNewsAsFallback) { %>
                 <% if (showNewsAsFallback) { %>
-                     <h2 class="text-lg sm:text-xl font-semibold text-[var(--text-primary)] mb-4">Web sonuçları bulunamadı, haber sonuçları gösteriliyor:</h2>
                 <% } %>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                     <% // Decide which set of results to loop through %>
@@ -333,14 +332,22 @@
                     <% }) %>
                 </div>
                  <% // Show pagination only for actual web results, not news fallback %>
-                 <% if (webResultsFound && ((results.length === 10 && (!start || parseInt(start) < 91)) || (start && parseInt(start) > 1))) { %>
+                 <% // Check if there are results to paginate (at least 10) %>
+                 <% // The server passes 'start' which is 0-based, but pagination links use 10, 20, etc. steps %>
+                 <% // Check if the current result set has 10 items (implies there might be more) %>
+                 <% if (webResultsFound && results.length > 0) { %>
                     <div class="pagination flex justify-center mt-6 sm:mt-8">
-                        <% if (start && parseInt(start) > 1) { %>
-                            <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= Math.max(1, parseInt(start) - 10) %>"><i class="fa-solid fa-arrow-left mr-1.5"></i>Önceki</a>
+                        <% // Calculate previous start (go back 10, min is 0) %>
+                        <% const prevStart = Math.max(0, start - 10); %>
+                        <% if (start > 0) { %>
+                            <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= prevStart %>"><i class="fa-solid fa-arrow-left mr-1.5"></i>Önceki</a>
                         <% } %>
-                        <span class="current"><%= Math.ceil(parseInt(start || 1) / 10) %></span>
-                        <% if (results.length === 10 && (!start || parseInt(start) < 91)) { // Limit pagination example %>
-                            <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= (parseInt(start || 1)) + 10 %>">Sonraki<i class="fa-solid fa-arrow-right ml-1.5"></i></a>
+                        <% // Calculate current page number (start / 10 + 1) %>
+                        <span class="current"><%= Math.floor(start / 10) + 1 %></span>
+                        <% // Show next button if we got a full page of results (implying more might exist) %>
+                        <% if (results.length === 10) { %>
+                            <% const nextStart = start + 10; %>
+                            <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= nextStart %>">Sonraki<i class="fa-solid fa-arrow-right ml-1.5"></i></a>
                         <% } %>
                     </div>
                 <% } %>
@@ -358,10 +365,26 @@
                         </div>
                     <% }) %>
                 </div>
+                 <% // Add pagination for images if needed (requires API support and server logic) %>
+                 <% // Example: If image results always return 50, you might paginate based on that %>
+                 <% if (type === 'image' && images.length > 0) { %>
+                     <div class="pagination flex justify-center mt-6 sm:mt-8">
+                         <% const prevStart = Math.max(0, start - 50); // Assuming 50 images per page %>
+                         <% if (start > 0) { %>
+                            <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= prevStart %>"><i class="fa-solid fa-arrow-left mr-1.5"></i>Önceki</a>
+                         <% } %>
+                         <span class="current"><%= Math.floor(start / 50) + 1 %></span>
+                         <% if (images.length === 50) { // If we got a full page %>
+                             <% const nextStart = start + 50; %>
+                             <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= nextStart %>">Sonraki<i class="fa-solid fa-arrow-right ml-1.5"></i></a>
+                         <% } %>
+                     </div>
+                 <% } %>
+
             <% } %>
 
             <% // Only show news results block if type is explicitly 'news' %>
-             <% if (type === 'news' && newsResults && newsResults.length > 0 && !showNewsAsFallback) { %>
+             <% if (type === 'news' && newsResults && newsResults.length > 0) { %>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     <% newsResults.forEach(r => { %>
                         <div class="result-card flex flex-col">
@@ -382,6 +405,21 @@
                         </div>
                     <% }) %>
                 </div>
+                <% // Add pagination for news if needed (requires API support and server logic) %>
+                <% if (type === 'news' && newsResults.length > 0) { %>
+                     <div class="pagination flex justify-center mt-6 sm:mt-8">
+                         <% const prevStart = Math.max(0, start - 10); // Assuming 10 news results per page %>
+                         <% if (start > 0) { %>
+                            <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= prevStart %>"><i class="fa-solid fa-arrow-left mr-1.5"></i>Önceki</a>
+                         <% } %>
+                         <span class="current"><%= Math.floor(start / 10) + 1 %></span>
+                         <% if (newsResults.length === 10) { // If we got a full page %>
+                             <% const nextStart = start + 10; %>
+                             <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= nextStart %>">Sonraki<i class="fa-solid fa-arrow-right ml-1.5"></i></a>
+                         <% } %>
+                     </div>
+                 <% } %>
+
             <% } %>
 
             <% if (type === 'wiki' && wiki) { %>
@@ -404,6 +442,7 @@
                         <i class="fa-solid fa-arrow-right ml-1.5 transform transition-transform duration-200 group-hover:translate-x-1"></i>
                     </a>
                 </div>
+                <% // Wiki usually doesn't have pagination %>
             <% } %>
 
             <% if (type === 'video' && videos && videos.length > 0) { %>
@@ -425,7 +464,22 @@
                         </div>
                     <% }); %>
                 </div>
+                 <% // Add pagination for videos if needed (requires API support and server logic) %>
+                 <% if (type === 'video' && videos.length > 0) { %>
+                     <div class="pagination flex justify-center mt-6 sm:mt-8">
+                         <% const prevStart = Math.max(0, start - 10); // Assuming 10 video results per page %>
+                         <% if (start > 0) { %>
+                            <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= prevStart %>"><i class="fa-solid fa-arrow-left mr-1.5"></i>Önceki</a>
+                         <% } %>
+                         <span class="current"><%= Math.floor(start / 10) + 1 %></span>
+                         <% if (videos.length === 10) { // If we got a full page %>
+                             <% const nextStart = start + 10; %>
+                             <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= nextStart %>">Sonraki<i class="fa-solid fa-arrow-right ml-1.5"></i></a>
+                         <% } %>
+                     </div>
+                 <% } %>
             <% } %>
+
 
             <%
                 // Recalculate noResultsFound considering the news fallback for web searches
@@ -552,11 +606,13 @@
             }
 
             // --- START: Replace this dummy data with your actual fetch call ---
+            // This should call a backend endpoint you create that fetches suggestions
+            // from Google Suggest, Bing Suggest, etc.
             console.log("Fetching suggestions for:", query);
-            // Example: Fetch from a backend endpoint
             /*
             try {
-                const response = await fetch(`/suggest?q=${encodeURIComponent(query)}`);
+                // Example: Fetch from a backend endpoint like '/api/suggest'
+                const response = await fetch(`/api/suggest?q=${encodeURIComponent(query)}`);
                 if (!response.ok) throw new Error('Network response was not ok.');
                 const data = await response.json();
                 // Assuming data is an array of suggestion strings or objects like [{text: '...'}, ...]
