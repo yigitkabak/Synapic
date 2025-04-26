@@ -23,6 +23,7 @@
             --border-color: rgba(255, 255, 255, 0.1);
             --shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
             --blur-bg: rgba(18, 18, 18, 0.8);
+            --logo-filter: invert(100%) grayscale(100%); /* For dark mode visibility */
         }
 
         .light-theme {
@@ -40,6 +41,7 @@
             --border-color: rgba(0, 0, 0, 0.1);
             --shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
             --blur-bg: rgba(245, 247, 250, 0.8);
+            --logo-filter: none; /* No filter for light mode */
         }
 
         body {
@@ -81,15 +83,72 @@
             border-color: var(--accent);
         }
 
+         /* Autocomplete Styles */
+        #searchFormContainer {
+            position: relative; /* Needed for absolute positioning of suggestions */
+        }
+
         .search-box-container {
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             box-shadow: var(--shadow);
             transition: border-color 0.2s ease;
+            z-index: 20; /* Ensure search box is above suggestions */
+            position: relative; /* Needed for z-index stacking */
         }
         .search-box-container:focus-within {
             border-color: var(--accent);
         }
+
+        #suggestionsList {
+            position: absolute;
+            top: 100%; /* Position directly below the search box */
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            box-shadow: var(--shadow);
+            z-index: 10; /* Below search box but above other content */
+            overflow-y: auto;
+            max-height: 250px; /* Limit height and add scroll */
+            list-style: none;
+            padding: 0;
+            margin: 0 auto; /* Center with search box */
+            max-width: calc(100% - 2rem); /* Match max width of search box container, considering padding */
+            width: max-content; /* Adjust width to content up to max-width */
+             min-width: 300px; /* Minimum width */
+        }
+
+         @media (min-width: 640px) {
+            #suggestionsList {
+                 max-width: calc(48rem - 2rem); /* Match max width of search box container (max-w-3xl is 48rem), considering padding */
+                 min-width: 400px;
+            }
+         }
+         @media (min-width: 768px) {
+             #suggestionsList {
+                 max-width: calc(48rem - 2rem); /* Max-w-3xl */
+             }
+         }
+
+
+        #suggestionsList li {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            transition: background-color 0.2s;
+        }
+        #suggestionsList li:last-child {
+            border-bottom: none;
+        }
+        #suggestionsList li:hover,
+        #suggestionsList li.selected {
+            background-color: var(--button-hover);
+        }
+
 
         .active-tab {
             background: var(--accent);
@@ -157,10 +216,21 @@
         /* Ensure icons inside buttons inherit color */
         button i { color: inherit; }
 
+        .external-logos img {
+            height: 32px; /* Adjust size as needed */
+            filter: var(--logo-filter);
+            transition: transform 0.2s ease;
+        }
+         .external-logos a:hover img {
+            transform: scale(1.1);
+         }
+
+
         @media (max-width: 640px) {
             .synapic-logo { font-size: 24px; letter-spacing: -1.5px; }
             .search-input { font-size: 16px; padding: 12px 16px; }
             .pagination a, .pagination span { padding: 6px 12px; margin: 0 3px; font-size: 0.75rem; }
+             .external-logos img { height: 24px; }
         }
     </style>
 </head>
@@ -185,18 +255,20 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <form method="GET" action="/search" class="mb-6 sm:mb-8">
-            <div class="search-box-container rounded-full p-1 sm:p-2 max-w-3xl mx-auto">
-                <div class="flex items-center">
-                    <input type="text"
-                           name="query"
-                           value="<%= query %>"
-                           placeholder="Synapic'ta ara..."
-                           class="search-input w-full bg-transparent outline-none px-3 sm:px-5 py-2 text-sm sm:text-base text-[var(--text-primary)] placeholder-[var(--text-secondary)]">
-                    <button type="submit" class="p-2 rounded-full hover:bg-[var(--button-hover)] transition-colors mr-1">
-                        <i class="fa-solid fa-search text-[var(--text-secondary)] text-base sm:text-lg"></i>
-                    </button>
+            <div id="searchFormContainer" class="max-w-3xl mx-auto relative"> <div class="search-box-container rounded-full p-1 sm:p-2">
+                    <div class="flex items-center">
+                        <input type="text"
+                               name="query"
+                               id="queryInput" value="<%= query %>"
+                               placeholder="Synapic'ta ara..."
+                               class="search-input w-full bg-transparent outline-none px-3 sm:px-5 py-2 text-sm sm:text-base text-[var(--text-primary)] placeholder-[var(--text-secondary)]">
+                        <button type="submit" class="p-2 rounded-full hover:bg-[var(--button-hover)] transition-colors mr-1">
+                            <i class="fa-solid fa-search text-[var(--text-secondary)] text-base sm:text-lg"></i>
+                        </button>
+                    </div>
                 </div>
-            </div>
+                 <ul id="suggestionsList" class="hidden"></ul> </div>
+
 
             <div class="flex flex-wrap justify-center gap-2 sm:gap-3 mt-4 sm:mt-5">
                  <% ['web', 'image', 'news', 'wiki', 'video'].forEach(tab => { %>
@@ -221,30 +293,47 @@
             </div>
         </form>
 
+
         <div class="space-y-4 sm:space-y-6">
 
-            <% if (type === 'web' && results && results.length > 0) { %>
+            <%
+                // Determine if web results were found
+                const webResultsFound = results && results.length > 0;
+                // Determine if news results exist and we are on the web tab with no web results
+                const showNewsAsFallback = type === 'web' && !webResultsFound && newsResults && newsResults.length > 0;
+            %>
+
+            <% if (webResultsFound || showNewsAsFallback) { %>
+                <% if (showNewsAsFallback) { %>
+                     <h2 class="text-lg sm:text-xl font-semibold text-[var(--text-primary)] mb-4">Web sonuçları bulunamadı, haber sonuçları gösteriliyor:</h2>
+                <% } %>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                    <% results.forEach(r => { %>
+                    <% // Decide which set of results to loop through %>
+                    <% const resultsToDisplay = showNewsAsFallback ? newsResults : results; %>
+                    <% resultsToDisplay.forEach(item => { %>
                         <div class="result-card">
-                           <a href="<%= r.link || r.url %>" target="_blank" class="block p-4 sm:p-5 hover:bg-[var(--bg-tertiary)] rounded-lg">
+                           <a href="<%= item.link || item.url %>" target="_blank" class="block p-4 sm:p-5 hover:bg-[var(--bg-tertiary)] rounded-lg">
                                 <div class="flex items-start mb-1.5">
                                     <div class="flex-1">
-                                        <h3 class="font-semibold text-[var(--accent)] text-base sm:text-lg leading-tight hover:underline"><%= r.title %></h3>
+                                        <% // Use 'news' for title if showing news fallback, otherwise use 'title' %>
+                                        <h3 class="font-semibold text-[var(--accent)] text-base sm:text-lg leading-tight hover:underline"><%= item.title || item.news %></h3>
                                     </div>
-                                     <% if ((r.link || r.url || '').toLowerCase().endsWith('.pdf')) { %>
+                                     <% // Check for PDF link if showing original web results %>
+                                     <% if (!showNewsAsFallback && (item.link || item.url || '').toLowerCase().endsWith('.pdf')) { %>
                                         <span class="ml-2 mt-0.5 px-2 py-0.5 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] font-medium text-[10px] sm:text-xs inline-block border border-[var(--accent)]/20 flex-shrink-0">
                                         PDF
                                         </span>
                                     <% } %>
                                 </div>
-                                <p class="text-xs sm:text-sm text-[var(--text-secondary)] mb-2 leading-relaxed"><%= r.snippet %></p>
-                                <p class="text-[10px] sm:text-xs text-[var(--text-secondary)]/70 truncate"><%= r.link || r.url %></p>
+                                <% // Use 'news' as snippet if showing news fallback, otherwise use 'snippet' %>
+                                <p class="text-xs sm:text-sm text-[var(--text-secondary)] mb-2 leading-relaxed"><%= item.snippet || item.news %></p>
+                                <p class="text-[10px] sm:text-xs text-[var(--text-secondary)]/70 truncate"><%= item.link || item.url %></p>
                            </a>
                         </div>
                     <% }) %>
                 </div>
-                 <% if ((results.length === 10 && (!start || parseInt(start) < 91)) || (start && parseInt(start) > 1)) { %>
+                 <% // Show pagination only for actual web results, not news fallback %>
+                 <% if (webResultsFound && ((results.length === 10 && (!start || parseInt(start) < 91)) || (start && parseInt(start) > 1))) { %>
                     <div class="pagination flex justify-center mt-6 sm:mt-8">
                         <% if (start && parseInt(start) > 1) { %>
                             <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= Math.max(1, parseInt(start) - 10) %>"><i class="fa-solid fa-arrow-left mr-1.5"></i>Önceki</a>
@@ -271,7 +360,8 @@
                 </div>
             <% } %>
 
-             <% if (type === 'news' && newsResults && newsResults.length > 0) { %>
+            <% // Only show news results block if type is explicitly 'news' %>
+             <% if (type === 'news' && newsResults && newsResults.length > 0 && !showNewsAsFallback) { %>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     <% newsResults.forEach(r => { %>
                         <div class="result-card flex flex-col">
@@ -338,9 +428,11 @@
             <% } %>
 
             <%
+                // Recalculate noResultsFound considering the news fallback for web searches
+                // Also, ensure noResultsFound is true ONLY if there are truly no results AND no fallback was shown
                 let noResultsFound = false;
                 if (query) { // Only show "no results" if a query was actually made
-                    if (type === 'web' && (!results || results.length === 0)) noResultsFound = true;
+                    if (type === 'web' && !webResultsFound && !showNewsAsFallback) noResultsFound = true; // No web, no news fallback
                     else if (type === 'image' && (!images || images.length === 0)) noResultsFound = true;
                     else if (type === 'news' && (!newsResults || newsResults.length === 0)) noResultsFound = true;
                     else if (type === 'wiki' && !wiki) noResultsFound = true;
@@ -351,7 +443,19 @@
                 <div class="text-center py-16 sm:py-24 text-[var(--text-secondary)]">
                     <i class="fa-solid fa-compass mb-4 text-4xl sm:text-5xl opacity-50"></i>
                     <p class="text-base sm:text-lg font-medium text-[var(--text-primary)]">"<%= query %>" için sonuç bulunamadı.</p>
-                    <p class="text-sm sm:text-base mt-1">Farklı anahtar kelimeler deneyin veya arama türünü değiştirin.</p>
+                    <p class="text-sm sm:text-base mt-1 mb-6">Synapic sonuçları daha beta aşamasındadır.</p>
+                    <p class="text-sm sm:text-base mt-1">Aramayı aşağıdaki motorlarda deneyebilirsiniz:</p>
+                     <div class="external-logos flex justify-center items-center gap-6 mt-6">
+                        <a href="https://www.google.com/search?q=<%= encodeURIComponent(query) %>" target="_blank" title="Google'da Ara">
+                            <img src="https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png" alt="Google Logo">
+                        </a>
+                        <a href="https://www.bing.com/search?q=<%= encodeURIComponent(query) %>" target="_blank" title="Bing'de Ara">
+                             <img src="https://beebom.com/wp-content/uploads/2020/10/Bing-new-logo-website.jpg" alt="Bing Logo">
+                        </a>
+                        <a href="https://duckduckgo.com/?q=<%= encodeURIComponent(query) %>" target="_blank" title="DuckDuckGo'da Ara">
+                            <img src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse2.mm.bing.net%2Fth%3Fid%3DOIP.6D4UNHopLfSKhUXJapdUhgHaEK%26pid%3DApi&f=1&ipt=c636f7bd280853c7f4bd97c384c2c785b36cb08f28b5093d7c58110cfe030c21&ipo=images" alt="DuckDuckGo Logo">
+                        </a>
+                    </div>
                 </div>
             <% } %>
 
@@ -431,6 +535,159 @@
             if (e.key === 'Escape' && modal.style.display === 'flex') {
                 closeModal();
             }
+        });
+
+
+        // Autocomplete Logic
+        const queryInput = document.getElementById('queryInput');
+        const suggestionsList = document.getElementById('suggestionsList');
+        const searchForm = queryInput.closest('form'); // Get the parent form
+
+        let selectedSuggestionIndex = -1; // To track keyboard navigation
+
+        // Function to fetch suggestions (replace with actual API call)
+        async function fetchSuggestions(query) {
+            if (query.length < 2) { // Don't fetch for very short queries
+                return [];
+            }
+
+            // --- START: Replace this dummy data with your actual fetch call ---
+            console.log("Fetching suggestions for:", query);
+            // Example: Fetch from a backend endpoint
+            /*
+            try {
+                const response = await fetch(`/suggest?q=${encodeURIComponent(query)}`);
+                if (!response.ok) throw new Error('Network response was not ok.');
+                const data = await response.json();
+                // Assuming data is an array of suggestion strings or objects like [{text: '...'}, ...]
+                return data.map(item => item.text || item); // Adjust based on your API response structure
+            } catch (error) {
+                console.error("Error fetching suggestions:", error);
+                return []; // Return empty array on error
+            }
+            */
+
+            // Dummy data for demonstration:
+            const dummySuggestions = [
+                "yapay zeka nedir",
+                "yapay zeka uygulamaları",
+                "yapay zeka eğitimi",
+                "yapay zeka gelecek",
+                "synapic search",
+                "synapic nedir",
+                "en son haberler",
+                "türkiye gündem",
+                "hava durumu istanbul"
+            ];
+            const filteredSuggestions = dummySuggestions.filter(s => s.toLowerCase().includes(query.toLowerCase())).slice(0, 10);
+            // --- END: Replace dummy data ---
+
+            return filteredSuggestions;
+        }
+
+        // Function to display suggestions
+        function displaySuggestions(suggestions) {
+            suggestionsList.innerHTML = ''; // Clear previous suggestions
+            if (suggestions.length === 0) {
+                suggestionsList.classList.add('hidden');
+                return;
+            }
+
+            suggestions.forEach((suggestion, index) => {
+                const li = document.createElement('li');
+                li.textContent = suggestion;
+                li.dataset.index = index; // Store index for keyboard nav
+                li.addEventListener('click', () => {
+                    queryInput.value = suggestion;
+                    suggestionsList.classList.add('hidden');
+                    searchForm.submit(); // Optional: auto-submit on click
+                });
+                suggestionsList.appendChild(li);
+            });
+            suggestionsList.classList.remove('hidden');
+            selectedSuggestionIndex = -1; // Reset selection
+        }
+
+        // Handle input changes
+        let debounceTimer;
+        queryInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(async () => {
+                const query = queryInput.value.trim();
+                if (query.length > 0) {
+                    const suggestions = await fetchSuggestions(query);
+                    displaySuggestions(suggestions);
+                } else {
+                    suggestionsList.classList.add('hidden');
+                }
+            }, 250); // Debounce for 250ms
+        });
+
+         // Show suggestions when input is focused and has content
+        queryInput.addEventListener('focus', async () => {
+             const query = queryInput.value.trim();
+             if (query.length > 0 && suggestionsList.children.length === 0) { // Only fetch if already typed and list is empty
+                 const suggestions = await fetchSuggestions(query);
+                 displaySuggestions(suggestions);
+             } else if (suggestionsList.children.length > 0) { // If already has suggestions, just show
+                 suggestionsList.classList.remove('hidden');
+             }
+         });
+
+
+        // Hide suggestions when blurring, but allow time for a click
+        queryInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                suggestionsList.classList.add('hidden');
+            }, 150); // Small delay
+        });
+
+        // Handle keyboard navigation
+        queryInput.addEventListener('keydown', (e) => {
+            const items = suggestionsList.querySelectorAll('li');
+            if (items.length === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault(); // Prevent cursor movement
+                if (selectedSuggestionIndex < items.length - 1) {
+                    if (selectedSuggestionIndex >= 0) {
+                        items[selectedSuggestionIndex].classList.remove('selected');
+                    }
+                    selectedSuggestionIndex++;
+                    items[selectedSuggestionIndex].classList.add('selected');
+                    items[selectedSuggestionIndex].scrollIntoView({ block: 'nearest' }); // Scroll into view
+                     queryInput.value = items[selectedSuggestionIndex].textContent; // Fill input with selected suggestion
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault(); // Prevent cursor movement
+                 if (selectedSuggestionIndex > 0) {
+                     if (selectedSuggestionIndex >= 0) {
+                         items[selectedSuggestionIndex].classList.remove('selected');
+                     }
+                    selectedSuggestionIndex--;
+                    items[selectedSuggestionIndex].classList.add('selected');
+                    items[selectedSuggestionIndex].scrollIntoView({ block: 'nearest' }); // Scroll into view
+                     queryInput.value = items[selectedSuggestionIndex].textContent; // Fill input with selected suggestion
+                } else if (selectedSuggestionIndex === 0) {
+                    items[selectedSuggestionIndex].classList.remove('selected');
+                    selectedSuggestionIndex = -1;
+                     queryInput.value = e.target.value; // Revert to original input before selection
+                }
+            } else if (e.key === 'Enter') {
+                 // Prevent form submission if a suggestion is selected
+                if (selectedSuggestionIndex > -1) {
+                     e.preventDefault();
+                     items[selectedSuggestionIndex].click(); // Trigger click on selected item
+                 }
+                 // If no suggestion is selected, the default form submission happens
+            }
+             // If user types after selecting, reset selection
+             if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') {
+                  if (selectedSuggestionIndex > -1) {
+                       items[selectedSuggestionIndex].classList.remove('selected');
+                       selectedSuggestionIndex = -1;
+                  }
+             }
         });
 
     </script>
