@@ -17,7 +17,7 @@ Synapic Search'ü cihazınıza indirmek için șu yolları izleyin.
 
 Sadece kurulum scriptimizi çalıștırın.
 ```bash
-bash <(curl -s https://yigitkabak.neocities.org/synapic.sh)
+bash <(curl -s https://yigitkabak.neocities.org/setup.sh)
 ```
 
 HEPSİ BU KADAR!
