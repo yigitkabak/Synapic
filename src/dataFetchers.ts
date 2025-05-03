@@ -513,8 +513,12 @@ export async function fetchBingImages(query: string): Promise<ImageResult[]> {
     try {
         const url = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&setlang=tr&cc=tr&mkt=tr-TR`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9' },
-            timeout: 7000
+            headers: {
+                'User-Agent': USER_AGENT,
+                'Accept-Language': 'tr-TR,tr;q=0.9',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+            },
+            timeout: 10000
         });
 
         const $ = cheerio.load(data);
@@ -522,7 +526,7 @@ export async function fetchBingImages(query: string): Promise<ImageResult[]> {
         let count = 0;
 
         $('li.dg_u, div.imgpt, div.dgControl.hover, .img_cont').each((_, el) => {
-            if (count >= 30) return false;
+            if (count >= 50) return false;
 
             const jsonData = $(el).find('a.iusc').attr('m');
             if (jsonData) {
@@ -532,10 +536,10 @@ export async function fetchBingImages(query: string): Promise<ImageResult[]> {
                     const turl = imgData.turl as string | undefined;
                     const title = imgData.t as string | undefined;
 
-                    if (murl || turl) {
+                    if (murl && murl.startsWith('http')) {
                         images.push({
-                            image: murl || turl || '',
-                            thumbnail: turl || murl || null,
+                            image: murl,
+                            thumbnail: turl || murl,
                             title: title || query,
                             link: imgData.purl as string || '#'
                         });
@@ -544,7 +548,7 @@ export async function fetchBingImages(query: string): Promise<ImageResult[]> {
                 } catch (e) {
                     console.error("Failed to parse Bing image JSON data:", (e as Error).message);
                     const imgSrc = $(el).find('img').attr('src') || $(el).find('img').attr('data-src');
-                    if (imgSrc) {
+                    if (imgSrc && imgSrc.startsWith('http')) {
                         images.push({
                             image: imgSrc,
                             thumbnail: imgSrc,
@@ -556,7 +560,7 @@ export async function fetchBingImages(query: string): Promise<ImageResult[]> {
                 }
             } else {
                 const imgSrc = $(el).find('img').attr('src') || $(el).find('img').attr('data-src');
-                if (imgSrc) {
+                if (imgSrc && imgSrc.startsWith('http')) {
                     images.push({
                         image: imgSrc,
                         thumbnail: imgSrc,
@@ -584,8 +588,12 @@ export async function fetchGoogleImages(query: string): Promise<ImageResult[]> {
     try {
         const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&tbm=isch&hl=tr&gl=tr`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9' },
-            timeout: 7000
+            headers: {
+                'User-Agent': USER_AGENT,
+                'Accept-Language': 'tr-TR,tr;q=0.9',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+            },
+            timeout: 10000
         });
 
         const $ = cheerio.load(data);
@@ -593,7 +601,7 @@ export async function fetchGoogleImages(query: string): Promise<ImageResult[]> {
         let count = 0;
 
         $('div.isv-r').each((_, element) => {
-            if (count >= 30) return false;
+            if (count >= 50) return false;
 
             const imgElement = $(element).find('img');
             const imgSrc = imgElement.attr('src') || imgElement.attr('data-src');
@@ -601,7 +609,7 @@ export async function fetchGoogleImages(query: string): Promise<ImageResult[]> {
             const linkElement = $(element).find('a[href]');
             let link = linkElement.attr('href') || '#';
 
-            if (imgSrc) {
+            if (imgSrc && imgSrc.startsWith('http')) {
                 if (link.startsWith('/url?q=')) {
                     try {
                         const parsedUrl = new URLSearchParams(link.split('?')[1]);
@@ -629,13 +637,59 @@ export async function fetchGoogleImages(query: string): Promise<ImageResult[]> {
     }
 }
 
+export async function fetchDuckDuckGoImages(query: string): Promise<ImageResult[]> {
+    const cacheKey = `duckduckgo_images_${query}`;
+    const cachedData = Cache.get<ImageResult[]>(cacheKey);
+    if (cachedData) return cachedData;
+
+    try {
+        const url = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&iax=images&ia=images`;
+        const { data } = await axios.get<string>(url, {
+            headers: {
+                'User-Agent': USER_AGENT,
+                'Accept-Language': 'tr-TR,tr;q=0.9',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+            },
+            timeout: 10000
+        });
+
+        const $ = cheerio.load(data);
+        const images: ImageResult[] = [];
+        let count = 0;
+
+        $('div.tile--img').each((_, element) => {
+            if (count >= 50) return false;
+
+            const imgElement = $(element).find('img.tile--img__img');
+            const imgSrc = imgElement.attr('src') || imgElement.attr('data-src');
+            const title = imgElement.attr('alt') || query;
+            const link = $(element).find('a').attr('href') || '#';
+
+            if (imgSrc && imgSrc.startsWith('http')) {
+                images.push({
+                    image: imgSrc,
+                    thumbnail: imgSrc,
+                    title,
+                    link
+                });
+                count++;
+            }
+        });
+
+        Cache.set(cacheKey, images);
+        return images;
+    } catch (error: any) {
+        console.error('DuckDuckGo Images fetch error:', error.message);
+        return [];
+    }
+}
+
 export async function fetchYoutubeResults(query: string): Promise<VideoResult[]> {
     const cacheKey = `youtube_videos_${query}`;
     const cachedData = Cache.get<VideoResult[]>(cacheKey);
     if (cachedData) return cachedData;
 
     try {
-        // Önce masaüstü sitesini dene
         const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&hl=tr`;
         const { data } = await axios.get<string>(url, {
             headers: {
@@ -654,7 +708,6 @@ export async function fetchYoutubeResults(query: string): Promise<VideoResult[]>
             const scriptContent = $(script).html();
             if (scriptContent?.includes('var ytInitialData = ')) {
                 try {
-                    // Daha sağlam JSON çıkarma
                     const jsonMatch = scriptContent.match(/var ytInitialData = ({[\s\S]*?});/);
                     if (jsonMatch && jsonMatch[1]) {
                         const jsonData = jsonMatch[1];
@@ -693,7 +746,6 @@ export async function fetchYoutubeResults(query: string): Promise<VideoResult[]>
             }
         }
 
-        // Eğer yeterli sonuç yoksa veya initialData alınamadıysa, mobil siteye geri dön
         if (videos.length < 5) {
             console.warn("Insufficient results from www.youtube.com, falling back to m.youtube.com.");
             const mobileUrl = `https://m.youtube.com/results?search_query=${encodeURIComponent(query)}&hl=tr`;
@@ -868,23 +920,24 @@ export async function getAggregatedImageResults(query: string): Promise<ImageRes
     if (cachedData) return cachedData;
 
     try {
-        const [bingImages, googleImages] = await Promise.all([
+        const [bingImages, googleImages, duckDuckGoImages] = await Promise.all([
             fetchBingImages(query),
-            fetchGoogleImages(query)
+            fetchGoogleImages(query),
+            fetchDuckDuckGoImages(query)
         ]);
 
         const imagesMap = new Map<string, ImageResult>();
 
-        [bingImages, googleImages].forEach(images => {
+        [bingImages, googleImages, duckDuckGoImages].forEach(images => {
             images.forEach(item => {
-                if (!imagesMap.has(item.image)) {
+                if (!imagesMap.has(item.image) && item.image && item.image.startsWith('http')) {
                     imagesMap.set(item.image, item);
                 }
             });
         });
 
         const combined = Array.from(imagesMap.values());
-        const slicedCombined = combined.slice(0, 30);
+        const slicedCombined = combined.slice(0, 100); // Daha fazla resim göstermek için sınır artırıldı
         Cache.set(cacheKey, slicedCombined);
         return slicedCombined;
 
