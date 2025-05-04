@@ -440,7 +440,7 @@ export async function fetchGoogleNewsResults(query: string, start: number = 0): 
                     }
                 }
 
-                const source = sourceAndTime.split('·')[0]?.trim() || 'Unknown Source';
+                const source = sourceAndTime.split('·')[0]?.trim() || 'Bilinmeyen Kaynak';
 
                 newsResults.push({
                     news: title,
@@ -481,7 +481,7 @@ export async function fetchYahooNewsResults(query: string, start: number = 0): P
             const title = titleElement.text().trim() || '';
             const url = titleElement.attr('href') || '';
             const snippet = $(element).find('p').text().trim() || '';
-            const source = $(element).find('span.s-source').text().trim() || 'Yahoo News';
+            const source = $(element).find('span.s-source').text().trim() || 'Yahoo Haber';
             const imageElement = $(element).find('img');
             const image = imageElement.attr('src') || null;
 
@@ -643,7 +643,7 @@ export async function fetchDuckDuckGoImages(query: string): Promise<ImageResult[
     if (cachedData) return cachedData;
 
     try {
-        const url = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&iax=images&ia=images`;
+        const url = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&t=h_&iax=images&ia=images&kl=tr-tr`;
         const { data } = await axios.get<string>(url, {
             headers: {
                 'User-Agent': USER_AGENT,
@@ -729,9 +729,9 @@ export async function fetchYoutubeResults(query: string): Promise<VideoResult[]>
                     const videoRenderer = item.videoRenderer;
                     if (videoRenderer) {
                         const videoId = videoRenderer.videoId as string;
-                        const title = videoRenderer.title?.runs?.[0]?.text as string || videoRenderer.title?.simpleText as string || 'N/A';
+                        const title = videoRenderer.title?.runs?.[0]?.text as string || videoRenderer.title?.simpleText as string || 'Bilinmeyen Video';
                         const thumbnail = videoRenderer.thumbnail?.thumbnails?.sort((a: any, b: any) => (b.width || 0) - (a.width || 0))[0]?.url as string || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-                        const channel = videoRenderer.ownerText?.runs?.[0]?.text as string || 'N/A';
+                        const channel = videoRenderer.ownerText?.runs?.[0]?.text as string || 'Bilinmeyen Kaynak';
 
                         if (videoId && title) {
                             videos.push({
@@ -747,7 +747,7 @@ export async function fetchYoutubeResults(query: string): Promise<VideoResult[]>
         }
 
         if (videos.length < 5) {
-            console.warn("Insufficient results from www.youtube.com, falling back to m.youtube.com.");
+            console.warn("Yetersiz sonuç, m.youtube.com'a geçiliyor.");
             const mobileUrl = `https://m.youtube.com/results?search_query=${encodeURIComponent(query)}&hl=tr`;
             const mobileResponse = await axios.get<string>(mobileUrl, {
                 headers: {
@@ -856,7 +856,7 @@ export async function fetchTwitterResults(query: string): Promise<SearchResult[]
             const linkElement = $(element).find('a[href*="/status/"]');
             const link = `https://x.com${linkElement.attr('href') || ''}`;
             const title = snippet.length > 50 ? `${snippet.substring(0, 47)}...` : snippet;
-            const username = $(element).find('a[role="link"]').first().text().trim() || 'X User';
+            const username = $(element).find('a[role="link"]').first().text().trim() || 'X Kullanıcısı';
 
             if (snippet && link) {
                 results.push({
@@ -937,7 +937,7 @@ export async function getAggregatedImageResults(query: string): Promise<ImageRes
         });
 
         const combined = Array.from(imagesMap.values());
-        const slicedCombined = combined.slice(0, 100); // Daha fazla resim göstermek için sınır artırıldı
+        const slicedCombined = combined.slice(0, 100);
         Cache.set(cacheKey, slicedCombined);
         return slicedCombined;
 
@@ -1021,8 +1021,7 @@ export function checkBangRedirects(query: string): string | null {
     const bangRedirects: { [key: string]: string } = {
         github: "https://github.com/search?q=", gh: "https://github.com/search?q=",
         google: "https://www.google.com/search?q=", g: "https://www.google.com/search?q=",
-        yt: "https://www.youtube.com/results?search_query=",
-        youtube: "https://www.youtube.com/results?search_query=",
+        yt: "https://www.youtube.com/results?search_query=", youtube: "https://www.youtube.com/results?search_query=",
         wikipedia: "https://tr.wikipedia.org/wiki/", wiki: "https://tr.wikipedia.org/wiki/", wp: "https://tr.wikipedia.org/wiki/",
         yahoo: "https://search.yahoo.com/search?p=", y: "https://search.yahoo.com/search?p=",
         bing: "https://www.bing.com/search?q=", b: "https://www.bing.com/search?q=",
