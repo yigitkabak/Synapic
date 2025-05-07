@@ -1,5 +1,5 @@
 import { Express, Request, Response, NextFunction } from 'express';
-import axios from 'axios';
+import axios from 'axios'; // Named import AxiosError kaldırıldı
 import validApiKeys from '../views/json/ApiKeys.json';
 
 import {
@@ -12,7 +12,6 @@ import {
     Cache,
     WikiSummary, SearchResult, ImageResult, NewsResult, VideoResult, IPInfoData
 } from './dataFetchers';
-
 
 interface RenderData {
     query: string;
@@ -29,7 +28,6 @@ interface RenderData {
     messageSent?: boolean;
 }
 
-
 interface ApiResponse {
     query: string;
     type: string;
@@ -42,7 +40,6 @@ interface ApiResponse {
     error?: string;
 }
 
-
 export function checkApiKey(req: Request, res: Response, next: NextFunction): void {
     const apiKey = req.query.apikey as string | undefined;
     if (!apiKey || !validApiKeys.includes(apiKey)) {
@@ -51,7 +48,6 @@ export function checkApiKey(req: Request, res: Response, next: NextFunction): vo
     }
     next();
 }
-
 
 export function setupRoutes(app: Express, ipinfoToken: string | undefined): void {
 
@@ -85,29 +81,21 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
                  countryCode = geoData?.country || 'N/A';
 
             } catch (error: any) {
+                 // axios.isAxiosError kontrolü burada da eklenebilir, ancak şimdilik genel hata mesajı yeterli.
                  console.error("IP Info fetch error:", error.message);
             }
         }
 
         const renderData: RenderData = {
-            query,
-            type,
-            start,
-            results: [],
-            images: [],
-            newsResults: [],
-            videos: [],
-            wiki: null,
-            countryCode,
-            elapsedTime: '0.00',
+            query, type, start, results: [], images: [], newsResults: [],
+            videos: [], wiki: null, countryCode, elapsedTime: '0.00',
             searchSource: 'Synapic Search'
         };
 
         try {
             const fetchPromises: Promise<any>[] = [];
-
             fetchPromises.push(fetchWikiSummary(query, 'tr')
-                .catch(e => { console.error("Wiki fetch failed inline:", e.message); return null; }));
+                .catch((e: Error) => { console.error("Wiki fetch failed inline:", e.message); return null; }));
 
             let mainFetchPromise: Promise<any[]>;
             switch (type) {
@@ -118,10 +106,9 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
                 case 'video': mainFetchPromise = fetchYoutubeResults(query); renderData.searchSource = 'Video Results'; break;
                 default: mainFetchPromise = getAggregatedWebResults(query, start); renderData.type = 'web'; renderData.searchSource = 'Web Results (Fallback)';
             }
-            fetchPromises.push(mainFetchPromise.catch(e => { console.error(`${type} fetch failed inline:`, e.message); return []; }));
+            fetchPromises.push(mainFetchPromise.catch((e: Error) => { console.error(`${type} fetch failed inline:`, e.message); return []; }));
 
             const [wikiResult, mainResults] = await Promise.all(fetchPromises);
-
             renderData.wiki = wikiResult as WikiSummary | null;
 
             switch (renderData.type) {
@@ -133,12 +120,7 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
 
         } catch (error: any) {
             console.error("Error during search processing:", error.message);
-            renderData.searchSource = `Error retrieving results: ${error.message}`;
-            renderData.results = [];
-            renderData.images = [];
-            renderData.newsResults = [];
-            renderData.videos = [];
-            renderData.wiki = null;
+            renderData.searchSource = `Error retrieving results`;
         } finally {
             renderData.elapsedTime = ((Date.now() - startTime) / 1000).toFixed(2);
             res.render('results', renderData);
@@ -157,15 +139,10 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
          }
 
          try {
-            let results: SearchResult[] | undefined;
-            let images: ImageResult[] | undefined;
-            let newsResults: NewsResult[] | undefined;
-            let videos: VideoResult[] | undefined;
             let searchSource: string = '';
-
             const wikiPromise = fetchWikiSummary(query, 'tr');
-
             let mainFetchPromise: Promise<any[]>;
+
             switch (type) {
                 case 'web': mainFetchPromise = getAggregatedWebResults(query, start); searchSource = 'Aggregated Web'; break;
                 case 'image': mainFetchPromise = fetchBingImages(query); searchSource = 'Bing Images'; break;
@@ -176,15 +153,12 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
             }
 
             const [wiki, mainResults] = await Promise.all([
-                 wikiPromise.catch(e => { console.error("API Wiki fetch failed:", e.message); return null; }),
-                 mainFetchPromise.catch(e => { console.error(`API ${type} fetch failed:`, e.message); return []; })
+                 wikiPromise.catch((e: Error) => { console.error("API Wiki fetch failed:", e.message); return null; }),
+                 mainFetchPromise.catch((e: Error) => { console.error(`API ${type} fetch failed:`, e.message); return []; })
             ]);
 
             const apiResponse: ApiResponse = {
-                query,
-                type,
-                searchSource,
-                wiki: wiki as WikiSummary | null,
+                query, type, searchSource, wiki: wiki as WikiSummary | null,
             };
 
             switch (type) {
@@ -193,7 +167,6 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
                 case 'news': apiResponse.newsResults = mainResults as NewsResult[]; break;
                 case 'video': apiResponse.videos = mainResults as VideoResult[]; break;
             }
-
             res.json(apiResponse);
             return;
 
@@ -204,11 +177,9 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
          }
     });
 
-
     app.get('/', (req: Request, res: Response) => res.render('index'));
     app.get('/manifesto', (req: Request, res: Response) => res.render('manifesto'));
     app.get('/iletisim', (req: Request, res: Response) => res.render('iletisim', { messageSent: false }));
-
 
     app.get('/google', (req: Request, res: Response) => {
         const query = req.query.q as string || '';
@@ -218,5 +189,4 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
         const query = req.query.q as string || '';
         res.redirect(`/search?query=${encodeURIComponent(query)}&type=web`);
     });
-
 }
