@@ -1,9 +1,8 @@
-import axios from 'axios';
+import axios, { isAxiosError } from 'axios';
 import * as cheerio from 'cheerio';
 import { URLSearchParams } from 'url';
 
-// Interfaces and other unchanged types remain the same
-interface WikipediaSummaryApiResponse {
+export interface WikipediaSummaryApiResponse {
     title: string;
     extract: string;
     thumbnail?: {
@@ -85,125 +84,243 @@ export const Cache = {
             expiry: Date.now() + cacheExpiration
         });
     },
-    get: function() {
+    getStorage: function(): Map<string, CacheItem<any>> {
         return cacheStorage;
     }
 };
 
 export const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-// Updated isTurkishDomain function to strictly check for .tr TLDs
-function isTurkishDomain(url: string): boolean {
+export async function fetchWikiSummary(query: string, lang: string = 'tr'): Promise<WikiSummary | null> {
+    const cacheKey = `wiki_summary_${lang}_${query}`;
+    const cachedData = Cache.get<WikiSummary>(cacheKey);
+    if (cachedData) return cachedData;
+
     try {
-        const parsedUrl = new URL(url);
-        const hostname = parsedUrl.hostname.toLowerCase();
-        // List of valid Turkish TLDs and second-level domains
-        const turkishTlds = [
-            '.tr',
-            '.com.tr',
-            '.org.tr',
-            '.gov.tr',
-            '.edu.tr',
-            '.mil.tr',
-            '.net.tr',
-            '.gen.tr',
-            '.biz.tr',
-            '.info.tr',
-            '.web.tr',
-            '.name.tr',
-            '.av.tr',
-            '.dr.tr',
-            '.bel.tr',
-            '.pol.tr',
-            '.k12.tr',
-            '.tsk.tr'
-        ];
-        // Check if the hostname ends with a valid Turkish TLD
-        return turkishTlds.some(tld => hostname.endsWith(tld));
-    } catch (e) {
-        console.error("Failed to parse URL for Turkish domain check:", (e as Error).message, url);
-        return false;
+        const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`;
+        const { data } = await axios.get<WikipediaSummaryApiResponse>(url, {
+            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8' },
+            timeout: 5000
+        });
+
+        if (data && data.title && data.extract) {
+            const summary: WikiSummary = {
+                title: data.title,
+                summary: data.extract,
+                img: data.thumbnail?.source || null,
+                url: data.content_urls?.desktop?.page || `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(query)}`
+            };
+            Cache.set(cacheKey, summary);
+            return summary;
+        }
+        return null;
+    } catch (error: any) {
+        if (isAxiosError(error) && error.response?.status === 404) {
+            console.log(`Wikipedia'da "${query}" için özet bulunamadı (${lang}).`);
+        } else {
+            console.error(`WikiSummary (${lang}) getirme hatası (${query}):`, error.message);
+        }
+        Cache.set(cacheKey, null);
+        return null;
     }
 }
 
-// Optional: Function to check if page content is in Turkish (performance-heavy, use sparingly)
-async function isTurkishContent(url: string): Promise<boolean> {
+export async function fetchBingImages(query: string): Promise<ImageResult[]> {
+    const cacheKey = `bing_images_${query}`;
+    const cachedData = Cache.get<ImageResult[]>(cacheKey);
+    if (cachedData) return cachedData;
+
     try {
-        const { data, headers } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9' },
-            timeout: 5000
+        const url = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2&first=1&tsc=ImageHoverTitle`;
+        const { data } = await axios.get<string>(url, {
+            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8' },
+            timeout: 7000
         });
-        // Check Content-Language header
-        const contentLanguage = headers['content-language']?.toLowerCase();
-        if (contentLanguage && contentLanguage.includes('tr')) {
-            return true;
-        }
-        // Check HTML lang attribute
         const $ = cheerio.load(data);
-        const htmlLang = $('html').attr('lang')?.toLowerCase();
-        return htmlLang === 'tr' || htmlLang === 'tr-tr';
-    } catch (e) {
-        console.error("Failed to check content language for URL:", (e as Error).message, url);
-        return false;
+        const images: ImageResult[] = [];
+        $('a.iusc').each((_, el) => {
+            const item = $(el);
+            const m_attr = item.attr('m');
+            if (m_attr) {
+                try {
+                    const m = JSON.parse(m_attr);
+                    if (m && m.murl && m.t) {
+                        images.push({
+                            title: m.t || query,
+                            image: m.murl,
+                            thumbnail: m.turl || m.murl,
+                            link: m.purl || url
+                        });
+                    }
+                } catch (e: any) {
+                    console.error("Bing görsel JSON ayrıştırma hatası: ", e.message);
+                }
+            }
+        });
+        Cache.set(cacheKey, images);
+        return images;
+    } catch (error: any) {
+        console.error('Bing Images getirme hatası:', error.message);
+        return [];
     }
+}
+
+export async function fetchGoogleNewsResults(query: string, start: number = 0): Promise<NewsResult[]> {
+    const cacheKey = `google_news_${start}_${query}`;
+    const cachedData = Cache.get<NewsResult[]>(cacheKey);
+    if (cachedData) return cachedData;
+
+    try {
+        const url = `https://news.google.com/search?q=${encodeURIComponent(query)}&hl=tr&gl=TR&ceid=TR:tr`;
+        const { data } = await axios.get<string>(url, {
+            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9' },
+            timeout: 7000
+        });
+        const $ = cheerio.load(data);
+        const news: NewsResult[] = [];
+        $('article').each((i, el) => {
+            const element = $(el);
+            const title = element.find('h3 > a').text().trim();
+            let link = element.find('h3 > a').attr('href');
+            const snippet = element.find('span[jsname]').text().trim();
+            const source = element.find('div[data-n-tid] a').text().trim();
+            const image = element.find('figure img').attr('src') || null;
+
+            if (title && link) {
+                if (link.startsWith('./')) {
+                    link = `https://news.google.com${link.substring(1)}`;
+                }
+                news.push({
+                    news: title,
+                    link: link,
+                    snippet: snippet || 'Özet bulunamadı.',
+                    source: source || 'Bilinmeyen Kaynak',
+                    image: image
+                });
+            }
+        });
+        Cache.set(cacheKey, news);
+        return news;
+    } catch (error: any) {
+        console.error('Google News getirme hatası:', error.message);
+        return [];
+    }
+}
+
+export async function fetchYoutubeResults(query: string): Promise<VideoResult[]> {
+    const cacheKey = `youtube_videos_${query}`;
+    const cachedData = Cache.get<VideoResult[]>(cacheKey);
+    if (cachedData) return cachedData;
+
+    try {
+        const url = `https://www.youtube.com/results?search_query=$${encodeURIComponent(query)}`;
+        const { data } = await axios.get<string>(url, {
+            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8' },
+            timeout: 7000
+        });
+        const videos: VideoResult[] = [];
+        const regex = /var ytInitialData = ({.*?});<\/script>/s;
+        const match = data.match(regex);
+        if (match && match[1]) {
+            try {
+                const ytData = JSON.parse(match[1]);
+                const contents = ytData.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents;
+                if (contents) {
+                    for (const item of contents) {
+                        if (item.videoRenderer) {
+                            const vr = item.videoRenderer;
+                            let videoUrl = vr.navigationEndpoint?.commandMetadata?.webCommandMetadata?.url;
+                            if (videoUrl && !videoUrl.startsWith('http')) {
+                                videoUrl = `https://www.youtube.com${videoUrl}`;
+                            } else if (!videoUrl && vr.videoId) {
+                                videoUrl = `https://www.youtube.com/watch?v=$${vr.videoId}`;
+                            }
+
+                            videos.push({
+                                title: vr.title?.runs?.[0]?.text || 'Başlık Yok',
+                                url: videoUrl || `https://www.youtube.com/watch?v=$${vr.videoId}`,
+                                thumbnail: vr.thumbnail?.thumbnails?.[0]?.url || '',
+                                source: vr.ownerText?.runs?.[0]?.text || 'YouTube'
+                            });
+                        }
+                    }
+                }
+            } catch (e: any) {
+                console.error("YouTube JSON verisi ayrıştırma hatası: ", e.message);
+            }
+        } else {
+             console.warn("YouTube'dan ytInitialData çekilemedi. HTML yapısı değişmiş olabilir.");
+        }
+        Cache.set(cacheKey, videos);
+        return videos;
+    } catch (error: any) {
+        console.error('YouTube getirme hatası:', error.message);
+        return [];
+    }
+}
+
+export function checkBangRedirects(query: string): string | null {
+    const bangs: { [key: string]: string } = {
+        '!g': 'https://www.google.com/search?q=',
+        '!yt': 'https://www.youtube.com/results?search_query=',
+        '!w': 'https://tr.wikipedia.org/wiki/Special:Search?search=',
+        '!bing': 'https://www.bing.com/search?q=',
+        '!ddg': 'https://duckduckgo.com/?q=',
+        '!amazon': 'https://www.amazon.com.tr/s?k=',
+    };
+    const parts = query.split(' ');
+    const bang = parts[0].toLowerCase();
+    if (bangs[bang]) {
+        const searchQuery = parts.slice(1).join(' ');
+        return `${bangs[bang]}${encodeURIComponent(searchQuery)}`;
+    }
+    return null;
 }
 
 export async function fetchGoogleResults(query: string, start: number = 0): Promise<SearchResult[]> {
     const cacheKey = `google_web_${start}_${query}`;
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
-
     try {
         const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&start=${start}&hl=tr&gl=tr`;
         const { data } = await axios.get<string>(url, {
             headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9' },
             timeout: 7000
         });
-
         const $ = cheerio.load(data);
         const results: SearchResult[] = [];
-
         $('div.g').each((_, element) => {
             const linkElement = $(element).find('a[jsname][href]');
-            let url = linkElement.attr('href');
+            let resultUrl = linkElement.attr('href');
             const title = $(element).find('h3').text()?.trim() || '';
             const snippetElement = $(element).find('div[data-sncf="1"]');
             const snippet = snippetElement.text()?.trim() || '';
             const displayUrl = $(element).find('cite').first().text()?.trim() || '';
-
-            if (url && title && !url.startsWith('/search') && !url.startsWith('#')) {
-                if (url.startsWith('/url?q=')) {
+            if (resultUrl && title && !resultUrl.startsWith('/search') && !resultUrl.startsWith('#')) {
+                if (resultUrl.startsWith('/url?q=')) {
                     try {
-                        const parsedUrl = new URLSearchParams(url.split('?')[1]);
-                        url = parsedUrl.get('q') || url;
-                    } catch (e) {
-                        console.error("Failed to parse Google redirect URL:", (e as Error).message);
+                        const parsedUrlParams = new URLSearchParams(resultUrl.split('?')[1]);
+                        resultUrl = parsedUrlParams.get('q') || resultUrl;
+                    } catch (e: any) {
+                        console.error("Google yönlendirme URL'si ayrıştırılamadı:", e.message);
                     }
                 }
-
                 try {
-                    const parsedUrl = new URL(url);
-                    // Only include results with valid .tr domains
-                    if (isTurkishDomain(url)) {
-                        results.push({
-                            title,
-                            link: url,
-                            snippet,
-                            displayUrl: displayUrl || parsedUrl.hostname.replace(/^www\./, ''),
-                            source: 'Google'
-                        });
-                    }
-                } catch (e) {
-                    console.error("Failed to parse result URL for Google:", (e as Error).message, url);
+                    const parsedResultUrl = new URL(resultUrl);
+                    results.push({
+                        title, link: resultUrl, snippet,
+                        displayUrl: displayUrl || parsedResultUrl.hostname.replace(/^www\./, ''),
+                        source: 'Google'
+                    });
+                } catch (e: any) {
+                    console.error("Google için sonuç URL'si ayrıştırılamadı:", e.message, resultUrl);
                 }
             }
         });
-
-        const slicedResults = results.slice(0, 10);
-        Cache.set(cacheKey, slicedResults);
-        return slicedResults;
+        Cache.set(cacheKey, results);
+        return results;
     } catch (error: any) {
-        console.error('Google fetch error:', error.message);
+        console.error('Google getirme hatası:', error.message);
         return [];
     }
 }
@@ -213,49 +330,38 @@ export async function fetchBingResults(query: string, start: number = 0): Promis
     const cacheKey = `bing_web_${first}_${query}`;
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
-
     try {
         const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&first=${first}&setlang=tr&cc=tr`;
         const { data } = await axios.get<string>(url, {
             headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9' },
             timeout: 7000
         });
-
         const $ = cheerio.load(data);
         const results: SearchResult[] = [];
-
         $('li.b_algo').each((_, element) => {
             const titleNode = $(element).find('h2 a');
             const title = titleNode.text().trim() || '';
-            const url = titleNode.attr('href') || '';
+            const resultUrl = titleNode.attr('href') || '';
             const snippetNode = $(element).find('.b_caption p');
             const snippet = snippetNode.text().trim() || '';
             const displayUrl = $(element).find('cite').text().trim() || '';
-
-            if (title && url) {
+            if (title && resultUrl) {
                 try {
-                    const parsedUrl = new URL(url);
-                    // Only include results with valid .tr domains
-                    if (isTurkishDomain(url)) {
-                        results.push({
-                            title,
-                            link: url,
-                            snippet,
-                            displayUrl: displayUrl || parsedUrl.hostname.replace(/^www\./, ''),
-                            source: 'Bing'
-                        });
-                    }
-                } catch (e) {
-                    console.error("Failed to parse result URL for Bing:", (e as Error).message, url);
+                    const parsedResultUrl = new URL(resultUrl);
+                    results.push({
+                        title, link: resultUrl, snippet,
+                        displayUrl: displayUrl || parsedResultUrl.hostname.replace(/^www\./, ''),
+                        source: 'Bing'
+                    });
+                } catch (e: any) {
+                    console.error("Bing için sonuç URL'si ayrıştırılamadı:", e.message, resultUrl);
                 }
             }
         });
-
-        const slicedResults = results.slice(0, 10);
-        Cache.set(cacheKey, slicedResults);
-        return slicedResults;
+        Cache.set(cacheKey, results);
+        return results;
     } catch (error: any) {
-        console.error('Bing fetch error:', error.message);
+        console.error('Bing getirme hatası:', error.message);
         return [];
     }
 }
@@ -264,66 +370,51 @@ export async function fetchDuckDuckGoResults(query: string, start: number = 0): 
     const cacheKey = `duckduckgo_web_${start}_${query}`;
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
-
     try {
         const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}&s=${start}&kl=tr-tr&kp=-2`;
         const { data } = await axios.get<string>(url, {
             headers: {
-                'User-Agent': USER_AGENT,
-                'Accept-Language': 'tr-TR,tr;q=0.9',
+                'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
-            },
-            timeout: 10000
+            }, timeout: 10000
         });
-
         const $ = cheerio.load(data);
         const results: SearchResult[] = [];
-
         $('div.result').each((_, element) => {
             const titleElement = $(element).find('a.result__a');
             const title = titleElement.text().trim() || '';
-            let url = titleElement.attr('href') || '';
+            let resultUrl = titleElement.attr('href') || '';
             const snippet = $(element).find('div.result__snippet').text().trim() || '';
             const displayUrl = $(element).find('a.result__url').text().trim() || '';
-
-            if (title && url) {
-                if (url.startsWith('//duckduckgo.com/l/?uddg=')) {
+            if (title && resultUrl) {
+                if (resultUrl.startsWith('//duckduckgo.com/l/?uddg=')) {
                     try {
-                        const params = new URLSearchParams(url.split('?')[1]);
-                        url = decodeURIComponent(params.get('uddg') || '');
-                    } catch (e) {
-                        console.error("Failed to parse DuckDuckGo redirect URL:", (e as Error).message, url);
+                        const params = new URLSearchParams(resultUrl.split('?')[1]);
+                        resultUrl = decodeURIComponent(params.get('uddg') || '');
+                    } catch (e: any) {
+                        console.error("DuckDuckGo yönlendirme URL'si ayrıştırılamadı:", e.message, resultUrl);
                         return;
                     }
                 }
-
-                if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                    url = `https://${url}`;
+                if (!resultUrl.startsWith('http://') && !resultUrl.startsWith('https://')) {
+                    resultUrl = `https://${resultUrl}`;
                 }
-
                 try {
-                    const parsedUrl = new URL(url);
-                    // Only include results with valid .tr domains
-                    if (isTurkishDomain(url)) {
-                        results.push({
-                            title,
-                            link: url,
-                            snippet,
-                            displayUrl: displayUrl || parsedUrl.hostname.replace(/^www\./, ''),
-                            source: 'DuckDuckGo'
-                        });
-                    }
-                } catch (e) {
-                    console.error("Failed to parse result URL for DuckDuckGo:", (e as Error).message, url);
+                    const parsedResultUrl = new URL(resultUrl);
+                    results.push({
+                        title, link: resultUrl, snippet,
+                        displayUrl: displayUrl || parsedResultUrl.hostname.replace(/^www\./, ''),
+                        source: 'DuckDuckGo'
+                    });
+                } catch (e: any) {
+                console.error("DuckDuckGo için sonuç URL'si ayrıştırılamadı:", e.message, resultUrl);
                 }
             }
         });
-
-        const slicedResults = results.slice(0, 10);
-        Cache.set(cacheKey, slicedResults);
-        return slicedResults;
+        Cache.set(cacheKey, results);
+        return results;
     } catch (error: any) {
-        console.error('DuckDuckGo fetch error:', error.message);
+        console.error('DuckDuckGo getirme hatası:', error.message);
         return [];
     }
 }
@@ -332,48 +423,37 @@ export async function fetchYandexResults(query: string, start: number = 0): Prom
     const cacheKey = `yandex_web_${start}_${query}`;
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
-
     try {
         const url = `https://yandex.com.tr/search/?text=${encodeURIComponent(query)}&p=${Math.floor(start / 10)}&lr=113&lang=tr`;
         const { data } = await axios.get<string>(url, {
             headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9' },
             timeout: 7000
         });
-
         const $ = cheerio.load(data);
         const results: SearchResult[] = [];
-
         $('li.serp-item').each((_, element) => {
             const titleElement = $(element).find('h2 a');
             const title = titleElement.text().trim() || '';
-            const url = titleElement.attr('href') || '';
+            const resultUrl = titleElement.attr('href') || '';
             const snippet = $(element).find('div.organic__content-wrapper').text().trim() || '';
             const displayUrl = $(element).find('div.path a').text().trim() || '';
-
-            if (title && url) {
+            if (title && resultUrl) {
                 try {
-                    const parsedUrl = new URL(url);
-                    // Only include results with valid .tr domains
-                    if (isTurkishDomain(url)) {
-                        results.push({
-                            title,
-                            link: url,
-                            snippet,
-                            displayUrl: displayUrl || parsedUrl.hostname.replace(/^www\./, ''),
-                            source: 'Yandex'
-                        });
-                    }
-                } catch (e) {
-                    console.error("Failed to parse result URL for Yandex:", (e as Error).message, url);
+                    const parsedResultUrl = new URL(resultUrl);
+                    results.push({
+                        title, link: resultUrl, snippet,
+                        displayUrl: displayUrl || parsedResultUrl.hostname.replace(/^www\./, ''),
+                        source: 'Yandex'
+                    });
+                } catch (e: any) {
+                    console.error("Yandex için sonuç URL'si ayrıştırılamadı:", e.message, resultUrl);
                 }
             }
         });
-
-        const slicedResults = results.slice(0, 10);
-        Cache.set(cacheKey, slicedResults);
-        return slicedResults;
+        Cache.set(cacheKey, results);
+        return results;
     } catch (error: any) {
-        console.error('Yandex fetch error:', error.message);
+        console.error('Yandex getirme hatası:', error.message);
         return [];
     }
 }
@@ -382,69 +462,54 @@ export async function fetchEcosiaResults(query: string, start: number = 0): Prom
     const cacheKey = `ecosia_web_${start}_${query}`;
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
-
     const maxRetries = 2;
     let attempt = 0;
-
     while (attempt <= maxRetries) {
         try {
             const url = `https://www.ecosia.org/search?q=${encodeURIComponent(query)}&p=${Math.floor(start / 10)}`;
             const { data } = await axios.get<string>(url, {
                 headers: {
-                    'User-Agent': USER_AGENT,
-                    'Accept-Language': 'tr-TR,tr;q=0.9',
+                    'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9',
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'Connection': 'keep-alive',
-                    'Referer': 'https://www.ecosia.org/',
-                    'Upgrade-Insecure-Requests': '1'
-                },
-                timeout: 12000
+                    'Accept-Encoding': 'gzip, deflate, br', 'Connection': 'keep-alive',
+                    'Referer': 'https://www.ecosia.org/', 'Upgrade-Insecure-Requests': '1'
+                }, timeout: 12000
             });
-
             const $ = cheerio.load(data);
             const results: SearchResult[] = [];
-
             $('div.result').each((_, element) => {
                 const titleElement = $(element).find('a.result-title');
                 const title = titleElement.text().trim() || '';
-                const url = titleElement.attr('href') || '';
+                const resultUrl = titleElement.attr('href') || '';
                 const snippet = $(element).find('p.result-snippet').text().trim() || '';
                 const displayUrl = $(element).find('span.result-url').text().trim() || '';
-
-                if (title && url) {
+                if (title && resultUrl) {
                     try {
-                        const parsedUrl = new URL(url);
-                        // Only include results with valid .tr domains
-                        if (isTurkishDomain(url)) {
-                            results.push({
-                                title,
-                                link: url,
-                                snippet,
-                                displayUrl: displayUrl || parsedUrl.hostname.replace(/^www\./, ''),
-                                source: 'Ecosia'
-                            });
-                        }
-                    } catch (e) {
-                        console.error("Failed to parse result URL for Ecosia:", (e as Error).message, url);
+                        const parsedResultUrl = new URL(resultUrl);
+                        results.push({
+                            title, link: resultUrl, snippet,
+                            displayUrl: displayUrl || parsedResultUrl.hostname.replace(/^www\./, ''),
+                            source: 'Ecosia'
+                        });
+                    } catch (e: any) {
+                        console.error("Ecosia için sonuç URL'si ayrıştırılamadı:", e.message, resultUrl);
                     }
                 }
             });
-
-            const slicedResults = results.slice(0, 10);
-            Cache.set(cacheKey, slicedResults);
-            return slicedResults;
+            Cache.set(cacheKey, results);
+            return results;
         } catch (error: any) {
-            console.error(`Ecosia fetch error (attempt ${attempt + 1}/${maxRetries + 1}):`, error.message);
-            if (error.response?.status === 403 && attempt < maxRetries) {
+            console.error(`Ecosia getirme hatası (deneme ${attempt + 1}/${maxRetries + 1}):`, error.message);
+            if (isAxiosError(error) && error.response?.status === 403 && attempt < maxRetries) {
                 attempt++;
-                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
                 continue;
             }
+            Cache.set(cacheKey, []);
             return [];
         }
     }
-
+    Cache.set(cacheKey, []);
     return [];
 }
 
@@ -452,45 +517,38 @@ export async function fetchTwitterResults(query: string): Promise<SearchResult[]
     const cacheKey = `twitter_web_${query}`;
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
-
     try {
-        const url = `https://x.com/search?q=${encodeURIComponent(query)}&lang=tr`;
+        const url = `https://x.com/search?q=${encodeURIComponent(query)}&lang=tr&src=typed_query`;
         const { data } = await axios.get<string>(url, {
             headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9' },
             timeout: 7000
         });
-
         const $ = cheerio.load(data);
         const results: SearchResult[] = [];
-
-        $('article').each((_, element) => {
-            const tweetElement = $(element).find('div[lang]');
-            const snippet = tweetElement.text().trim() || '';
-            const linkElement = $(element).find('a[href*="/status/"]');
-            const link = `https://x.com${linkElement.attr('href') || ''}`;
-            const title = snippet.length > 50 ? `${snippet.substring(0, 47)}...` : snippet;
-            const username = $(element).find('a[role="link"]').first().text().trim() || 'X Kullanıcısı';
-
-            if (snippet && link) {
-                // Optionally filter Twitter results to only include links to .tr domains
-                // Remove this check to allow all Twitter posts
-                if (isTurkishDomain(link)) {
-                    results.push({
-                        title,
-                        link,
-                        snippet,
-                        displayUrl: username,
-                        source: 'X'
-                    });
+        $('article[data-testid="tweet"]').each((_, element) => {
+            const tweetTextElement = $(element).find('div[data-testid="tweetText"]');
+            const snippet = tweetTextElement.text().trim() || '';
+            let link = '';
+            const timeElement = $(element).find('time').closest('a');
+            if (timeElement.length) {
+                const href = timeElement.attr('href');
+                if (href) {
+                    link = `https://x.com${href}`;
                 }
             }
+            const title = snippet.length > 50 ? `${snippet.substring(0, 47)}...` : snippet;
+            const userHandleElement = $(element).find('div[data-testid="User-Name"] a[href*="/"] span').filter((i, el) => $(el).text().startsWith('@'));
+            const displayUrl = userHandleElement.first().text().trim() || 'X Kullanıcısı';
+            if (snippet && link) {
+                results.push({
+                    title, link, snippet, displayUrl, source: 'X'
+                });
+            }
         });
-
-        const slicedResults = results.slice(0, 10);
-        Cache.set(cacheKey, slicedResults);
-        return slicedResults;
+        Cache.set(cacheKey, results);
+        return results;
     } catch (error: any) {
-        console.error('Twitter/X fetch error:', error.message);
+        console.error('Twitter/X getirme hatası:', error.message);
         return [];
     }
 }
@@ -499,7 +557,6 @@ export async function getAggregatedWebResults(query: string, start: number = 0):
     const cacheKey = `aggregated_web_${start}_${query}`;
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
-
     try {
         const [googleResults, bingResults, duckDuckGoResults, yandexResults, ecosiaResults, twitterResults] = await Promise.all([
             fetchGoogleResults(query, start),
@@ -509,42 +566,19 @@ export async function getAggregatedWebResults(query: string, start: number = 0):
             fetchEcosiaResults(query, start),
             fetchTwitterResults(query)
         ]);
-
         const resultsMap = new Map<string, SearchResult>();
-
-        [googleResults, bingResults, duckDuckGoResults, yandexResults, ecosiaResults, twitterResults].forEach(results => {
-            results.forEach(item => {
-                // Only include results with valid .tr domains
-                // Remove '|| item.source === 'X'' to exclude Twitter unless it links to .tr domains
-                if (isTurkishDomain(item.link)) {
-                    if (!resultsMap.has(item.link)) {
-                        resultsMap.set(item.link, item);
-                    }
+        [googleResults, bingResults, duckDuckGoResults, yandexResults, ecosiaResults, twitterResults].forEach(resultSet => {
+            resultSet.forEach(item => {
+                if (!resultsMap.has(item.link)) {
+                    resultsMap.set(item.link, item);
                 }
             });
         });
-
         const combined = Array.from(resultsMap.values());
-        const slicedCombined = combined.slice(0, 10);
-        Cache.set(cacheKey, slicedCombined);
-        return slicedCombined;
-
+        Cache.set(cacheKey, combined);
+        return combined;
     } catch (error: any) {
-        console.error('Aggregated search error:', error.message);
+        console.error('Birleştirilmiş arama hatası:', error.message);
         return [];
     }
 }
-
-// Include other unchanged functions here (omitted for brevity):
-// - fetchWikiSummary
-// - fetchGoogleNewsResults
-// - fetchYahooNewsResults
-// - fetchBingImages
-// - fetchGoogleImages
-// - fetchDuckDuckGoImages
-// - fetchYoutubeResults
-// - fetchVimeoResults
-// - getAggregatedImageResults
-// - getAggregatedVideoResults
-// - getAggregatedNewsResults
-// - checkBangRedirects
