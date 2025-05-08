@@ -21,5 +21,3 @@ bash <(curl -s https://yigitkabak.neocities.org/setup.sh)
 ```
 
 HEPSİ BU KADAR!
-<hr>
-NOT: Synapic Search'ü kurmak için diğer projelerimizden olan <a href="https://github.com/yigitkabak/aperium">Aperium</a>'u sisteminize kurmanız gerekmektedir.
