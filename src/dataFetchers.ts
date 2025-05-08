@@ -40,6 +40,23 @@ export interface NewsResult {
     image: string | null;
 }
 
+export interface GnewsApiResponse {
+    totalArticles: number;
+    articles: {
+        title: string;
+        description: string;
+        url: string;
+        image?: string;
+        publishedAt: string;
+        content: string;
+        source: {
+            name: string;
+            url: string;
+        };
+    }[];
+}
+
+
 export interface ImageResult {
     image: string;
     thumbnail: string | null;
@@ -91,6 +108,11 @@ export const Cache = {
 
 export const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+// NOT: API anahtarını doğrudan kod içinde saklamak güvenlik riski oluşturur.
+// Gerçek uygulamalarda ortam değişkenleri gibi daha güvenli yöntemler kullanın.
+const GNEWS_API_KEY = 'eaa76e708952a1df00eae28a4b2d3654';
+const GNEWS_BASE_URL = 'https://gnews.io/api/v4/search';
+
 export async function fetchWikiSummary(query: string, lang: string = 'tr'): Promise<WikiSummary | null> {
     const cacheKey = `wiki_summary_${lang}_${query}`;
     const cachedData = Cache.get<WikiSummary>(cacheKey);
@@ -99,7 +121,7 @@ export async function fetchWikiSummary(query: string, lang: string = 'tr'): Prom
     try {
         const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`;
         const { data } = await axios.get<WikipediaSummaryApiResponse>(url, {
-            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
+            headers: { 'User-Agent': USER_AGENT },
             timeout: 5000
         });
 
@@ -133,7 +155,7 @@ export async function fetchBingImages(query: string): Promise<ImageResult[]> {
     try {
         const url = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2&first=1&tsc=ImageHoverTitle`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
+            headers: { 'User-Agent': USER_AGENT },
             timeout: 7000
         });
         const $ = cheerio.load(data);
@@ -165,48 +187,60 @@ export async function fetchBingImages(query: string): Promise<ImageResult[]> {
     }
 }
 
-export async function fetchGoogleNewsResults(query: string, start: number = 0): Promise<NewsResult[]> {
-    const cacheKey = `google_news_${start}_${query}`;
+/**
+ * Fetches news results from the Gnews.io API.
+ * @param query The search query.
+ * @param max The maximum number of results to return (Gnews API 'max' parameter). Defaults to 10.
+ * @param lang The language of the articles (Gnews API 'lang' parameter). Defaults to 'tr' (Turkish).
+ * @param country The country of the articles (Gnews API 'country' parameter). Defaults to 'tr' (Turkey).
+ * @returns A promise that resolves with an array of NewsResult, or an empty array if fetching fails.
+ */
+export async function fetchGnewsResults(
+    query: string,
+    max: number = 10,
+    lang: string = 'tr',
+    country: string = 'tr'
+): Promise<NewsResult[]> {
+    const cacheKey = `gnews_${lang}_${country}_${max}_${query}`;
     const cachedData = Cache.get<NewsResult[]>(cacheKey);
     if (cachedData) return cachedData;
 
     try {
-        // Removed hl=tr, gl=TR, ceid=TR:tr from the URL
-        const url = `https://news.google.com/search?q=${encodeURIComponent(query)}`;
-        const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
+        const url = `${GNEWS_BASE_URL}?q=${encodeURIComponent(query)}&lang=${lang}&country=${country}&max=${max}&apikey=${GNEWS_API_KEY}`;
+
+        const { data } = await axios.get<GnewsApiResponse>(url, {
+            headers: { 'User-Agent': USER_AGENT },
             timeout: 7000
         });
-        const $ = cheerio.load(data);
-        const news: NewsResult[] = [];
-        $('article').each((i, el) => {
-            const element = $(el);
-            const title = element.find('h3 > a').text().trim();
-            let link = element.find('h3 > a').attr('href');
-            const snippet = element.find('span[jsname]').text().trim();
-            const source = element.find('div[data-n-tid] a').text().trim();
-            const image = element.find('figure img').attr('src') || null;
 
-            if (title && link) {
-                if (link.startsWith('./')) {
-                    link = `https://news.google.com${link.substring(1)}`;
-                }
+        const news: NewsResult[] = [];
+        if (data && data.articles && Array.isArray(data.articles)) {
+            data.articles.forEach(article => {
                 news.push({
-                    news: title,
-                    link: link,
-                    snippet: snippet || 'Özet bulunamadı.',
-                    source: source || 'Bilinmeyen Kaynak',
-                    image: image
+                    news: article.title,
+                    link: article.url,
+                    snippet: article.description || 'Özet bulunamadı.',
+                    source: article.source?.name || 'Bilinmeyen Kaynak',
+                    image: article.image || null
                 });
-            }
-        });
+            });
+        }
+
         Cache.set(cacheKey, news);
         return news;
+
     } catch (error: any) {
-        console.error('Google News getirme hatası:', error.message);
+        if (isAxiosError(error) && error.response?.status === 403) {
+             console.error('Gnews API hatası: Geçersiz API anahtarı veya kota aşıldı.');
+        } else {
+            console.error(`Gnews getirme hatası (${query}):`, error.message);
+        }
+
+        Cache.set(cacheKey, []);
         return [];
     }
 }
+
 
 export async function fetchYoutubeResults(query: string): Promise<VideoResult[]> {
     const cacheKey = `youtube_videos_${query}`;
@@ -214,10 +248,9 @@ export async function fetchYoutubeResults(query: string): Promise<VideoResult[]>
     if (cachedData) return cachedData;
 
     try {
-        // The URL structure seems custom, keeping it as is.
         const url = `https://www.youtube.com/results?search_query=$$${encodeURIComponent(query)}`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
+            headers: { 'User-Agent': USER_AGENT },
             timeout: 7000
         });
         const videos: VideoResult[] = [];
@@ -265,11 +298,10 @@ export function checkBangRedirects(query: string): string | null {
     const bangs: { [key: string]: string } = {
         '!g': 'https://www.google.com/search?q=',
         '!yt': 'https://www.youtube.com/results?search_query=',
-        // Changed to en.wikipedia.org for neutrality
         '!w': 'https://en.wikipedia.org/wiki/Special:Search?search=',
         '!bing': 'https://www.bing.com/search?q=',
         '!ddg': 'https://duckduckgo.com/?q=',
-        '!amazon': 'https://www.amazon.com.tr/s?k=', // Kept tr domain for Amazon as it's a specific regional site
+        '!amazon': 'https://www.amazon.com.tr/s?k=',
     };
     const parts = query.split(' ');
     const bang = parts[0].toLowerCase();
@@ -285,10 +317,9 @@ export async function fetchGoogleResults(query: string, start: number = 0): Prom
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
     try {
-        // Removed hl=tr and gl=tr from the URL
         const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&start=${start}`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
+            headers: { 'User-Agent': USER_AGENT },
             timeout: 7000
         });
         const $ = cheerio.load(data);
@@ -335,10 +366,9 @@ export async function fetchBingResults(query: string, start: number = 0): Promis
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
     try {
-        // Removed setlang=tr and cc=tr from the URL
         const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&first=${first}`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
+            headers: { 'User-Agent': USER_AGENT },
             timeout: 7000
         });
         const $ = cheerio.load(data);
@@ -376,11 +406,10 @@ export async function fetchDuckDuckGoResults(query: string, start: number = 0): 
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
     try {
-        // Removed kl=tr-tr from the URL
         const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}&s=${start}&kp=-2`;
         const { data } = await axios.get<string>(url, {
             headers: {
-                'User-Agent': USER_AGENT, /* Removed Accept-Language */
+                'User-Agent': USER_AGENT,
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
             }, timeout: 10000
         });
@@ -430,10 +459,9 @@ export async function fetchYandexResults(query: string, start: number = 0): Prom
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
     try {
-        // Removed lr=113 and lang=tr from the URL
         const url = `https://yandex.com.tr/search/?text=${encodeURIComponent(query)}&p=${Math.floor(start / 10)}`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
+            headers: { 'User-Agent': USER_AGENT },
             timeout: 7000
         });
         const $ = cheerio.load(data);
@@ -476,7 +504,7 @@ export async function fetchEcosiaResults(query: string, start: number = 0): Prom
             const url = `https://www.ecosia.org/search?q=${encodeURIComponent(query)}&p=${Math.floor(start / 10)}`;
             const { data } = await axios.get<string>(url, {
                 headers: {
-                    'User-Agent': USER_AGENT, /* Removed Accept-Language */
+                    'User-Agent': USER_AGENT,
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                     'Accept-Encoding': 'gzip, deflate, br', 'Connection': 'keep-alive',
                     'Referer': 'https://www.ecosia.org/', 'Upgrade-Insecure-Requests': '1'
@@ -525,10 +553,9 @@ export async function fetchTwitterResults(query: string): Promise<SearchResult[]
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
     try {
-        // Removed lang=tr from the URL
         const url = `https://x.com/search?q=${encodeURIComponent(query)}&src=typed_query`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
+            headers: { 'User-Agent': USER_AGENT },
             timeout: 7000
         });
         const $ = cheerio.load(data);
@@ -566,25 +593,48 @@ export async function getAggregatedWebResults(query: string, start: number = 0):
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
     try {
-        const [googleResults, bingResults, duckDuckGoResults, yandexResults, ecosiaResults, twitterResults] = await Promise.all([
+        const [googleResults, bingResults, duckDuckGoResults, yandexResults, ecosiaResults, twitterResults, gnewsResults] = await Promise.all([
             fetchGoogleResults(query, start),
             fetchBingResults(query, start),
             fetchDuckDuckGoResults(query, start),
             fetchYandexResults(query, start),
             fetchEcosiaResults(query, start),
-            fetchTwitterResults(query)
+            fetchTwitterResults(query),
+            fetchGnewsResults(query)
         ]);
-        const resultsMap = new Map<string, SearchResult>();
+        const resultsMap = new Map<string, SearchResult | NewsResult>();
         [googleResults, bingResults, duckDuckGoResults, yandexResults, ecosiaResults, twitterResults].forEach(resultSet => {
             resultSet.forEach(item => {
-                if (!resultsMap.has(item.link)) {
-                    resultsMap.set(item.link, item);
+                 const searchItem: SearchResult = {
+                    title: item.title,
+                    link: item.link,
+                    snippet: item.snippet,
+                    displayUrl: (item as SearchResult).displayUrl || (item.link ? new URL(item.link).hostname.replace(/^www\./, '') : ''),
+                    source: item.source
+                };
+                if (searchItem.link && !resultsMap.has(searchItem.link)) {
+                    resultsMap.set(searchItem.link, searchItem);
                 }
             });
         });
-        const combined = Array.from(resultsMap.values());
+
+        gnewsResults.forEach(item => {
+             const newsItem: NewsResult = {
+                 news: item.news,
+                 link: item.link,
+                 snippet: item.snippet,
+                 source: item.source,
+                 image: item.image
+             };
+             if (newsItem.link && !resultsMap.has(newsItem.link)) {
+                 resultsMap.set(newsItem.link, newsItem);
+             }
+        });
+
+
+        const combined: (SearchResult | NewsResult)[] = Array.from(resultsMap.values());
         Cache.set(cacheKey, combined);
-        return combined;
+        return combined as SearchResult[];
     } catch (error: any) {
         console.error('Birleştirilmiş arama hatası:', error.message);
         return [];
