@@ -99,7 +99,7 @@ export async function fetchWikiSummary(query: string, lang: string = 'tr'): Prom
     try {
         const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`;
         const { data } = await axios.get<WikipediaSummaryApiResponse>(url, {
-            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8' },
+            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
             timeout: 5000
         });
 
@@ -133,7 +133,7 @@ export async function fetchBingImages(query: string): Promise<ImageResult[]> {
     try {
         const url = `https://www.bing.com/images/search?q=${encodeURIComponent(query)}&form=HDRSC2&first=1&tsc=ImageHoverTitle`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8' },
+            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
             timeout: 7000
         });
         const $ = cheerio.load(data);
@@ -171,9 +171,10 @@ export async function fetchGoogleNewsResults(query: string, start: number = 0): 
     if (cachedData) return cachedData;
 
     try {
-        const url = `https://news.google.com/search?q=${encodeURIComponent(query)}&hl=tr&gl=TR&ceid=TR:tr`;
+        // Removed hl=tr, gl=TR, ceid=TR:tr from the URL
+        const url = `https://news.google.com/search?q=${encodeURIComponent(query)}`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9' },
+            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
             timeout: 7000
         });
         const $ = cheerio.load(data);
@@ -213,9 +214,10 @@ export async function fetchYoutubeResults(query: string): Promise<VideoResult[]>
     if (cachedData) return cachedData;
 
     try {
-        const url = `https://www.youtube.com/results?search_query=$${encodeURIComponent(query)}`;
+        // The URL structure seems custom, keeping it as is.
+        const url = `https://www.youtube.com/results?search_query=$$${encodeURIComponent(query)}`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8' },
+            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
             timeout: 7000
         });
         const videos: VideoResult[] = [];
@@ -233,12 +235,12 @@ export async function fetchYoutubeResults(query: string): Promise<VideoResult[]>
                             if (videoUrl && !videoUrl.startsWith('http')) {
                                 videoUrl = `https://www.youtube.com${videoUrl}`;
                             } else if (!videoUrl && vr.videoId) {
-                                videoUrl = `https://www.youtube.com/watch?v=$${vr.videoId}`;
+                                videoUrl = `https://www.youtube.com/watch?v=$$${vr.videoId}`;
                             }
 
                             videos.push({
                                 title: vr.title?.runs?.[0]?.text || 'Başlık Yok',
-                                url: videoUrl || `https://www.youtube.com/watch?v=$${vr.videoId}`,
+                                url: videoUrl || `https://www.youtube.com/watch?v=$$${vr.videoId}`,
                                 thumbnail: vr.thumbnail?.thumbnails?.[0]?.url || '',
                                 source: vr.ownerText?.runs?.[0]?.text || 'YouTube'
                             });
@@ -263,10 +265,11 @@ export function checkBangRedirects(query: string): string | null {
     const bangs: { [key: string]: string } = {
         '!g': 'https://www.google.com/search?q=',
         '!yt': 'https://www.youtube.com/results?search_query=',
-        '!w': 'https://tr.wikipedia.org/wiki/Special:Search?search=',
+        // Changed to en.wikipedia.org for neutrality
+        '!w': 'https://en.wikipedia.org/wiki/Special:Search?search=',
         '!bing': 'https://www.bing.com/search?q=',
         '!ddg': 'https://duckduckgo.com/?q=',
-        '!amazon': 'https://www.amazon.com.tr/s?k=',
+        '!amazon': 'https://www.amazon.com.tr/s?k=', // Kept tr domain for Amazon as it's a specific regional site
     };
     const parts = query.split(' ');
     const bang = parts[0].toLowerCase();
@@ -282,9 +285,10 @@ export async function fetchGoogleResults(query: string, start: number = 0): Prom
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
     try {
-        const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&start=${start}&hl=tr&gl=tr`;
+        // Removed hl=tr and gl=tr from the URL
+        const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&start=${start}`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9' },
+            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
             timeout: 7000
         });
         const $ = cheerio.load(data);
@@ -331,9 +335,10 @@ export async function fetchBingResults(query: string, start: number = 0): Promis
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
     try {
-        const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&first=${first}&setlang=tr&cc=tr`;
+        // Removed setlang=tr and cc=tr from the URL
+        const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&first=${first}`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9' },
+            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
             timeout: 7000
         });
         const $ = cheerio.load(data);
@@ -371,10 +376,11 @@ export async function fetchDuckDuckGoResults(query: string, start: number = 0): 
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
     try {
-        const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}&s=${start}&kl=tr-tr&kp=-2`;
+        // Removed kl=tr-tr from the URL
+        const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}&s=${start}&kp=-2`;
         const { data } = await axios.get<string>(url, {
             headers: {
-                'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9',
+                'User-Agent': USER_AGENT, /* Removed Accept-Language */
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
             }, timeout: 10000
         });
@@ -424,9 +430,10 @@ export async function fetchYandexResults(query: string, start: number = 0): Prom
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
     try {
-        const url = `https://yandex.com.tr/search/?text=${encodeURIComponent(query)}&p=${Math.floor(start / 10)}&lr=113&lang=tr`;
+        // Removed lr=113 and lang=tr from the URL
+        const url = `https://yandex.com.tr/search/?text=${encodeURIComponent(query)}&p=${Math.floor(start / 10)}`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9' },
+            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
             timeout: 7000
         });
         const $ = cheerio.load(data);
@@ -469,7 +476,7 @@ export async function fetchEcosiaResults(query: string, start: number = 0): Prom
             const url = `https://www.ecosia.org/search?q=${encodeURIComponent(query)}&p=${Math.floor(start / 10)}`;
             const { data } = await axios.get<string>(url, {
                 headers: {
-                    'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9',
+                    'User-Agent': USER_AGENT, /* Removed Accept-Language */
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                     'Accept-Encoding': 'gzip, deflate, br', 'Connection': 'keep-alive',
                     'Referer': 'https://www.ecosia.org/', 'Upgrade-Insecure-Requests': '1'
@@ -518,9 +525,10 @@ export async function fetchTwitterResults(query: string): Promise<SearchResult[]
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
     try {
-        const url = `https://x.com/search?q=${encodeURIComponent(query)}&lang=tr&src=typed_query`;
+        // Removed lang=tr from the URL
+        const url = `https://x.com/search?q=${encodeURIComponent(query)}&src=typed_query`;
         const { data } = await axios.get<string>(url, {
-            headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9' },
+            headers: { 'User-Agent': USER_AGENT /* Removed Accept-Language */ },
             timeout: 7000
         });
         const $ = cheerio.load(data);
