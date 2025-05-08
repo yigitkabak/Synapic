@@ -46,8 +46,8 @@
       padding: 0;
       box-sizing: border-box;
     }
-    
-    /* Yeni mobil stilleri */
+
+    /* Responsive ve Mobil stilleri (mevcut kodunuzdan alındı) */
     @media (max-width: 680px) {
       body {
         padding: 0 12px;
@@ -67,6 +67,13 @@
         width: 150px;
         height: 150px;
       }
+       /* Logo span boyutları mobil için ayarlandı */
+       .synapic-logo {
+            font-size: 40px;
+            letter-spacing: -2px;
+            margin-bottom: 10px;
+       }
+
 
       .search-input {
         padding: 16px 20px;
@@ -127,7 +134,7 @@
       }
     }
 
-    /* Çok küçük ekranlar için ek ayarlar */
+    /* Çok küçük ekranlar için ek ayarlar (mevcut kodunuzdan alındı) */
     @media (max-width: 480px) {
       .search-input {
         font-size: 13px;
@@ -147,13 +154,18 @@
         width: 120px;
         height: 120px;
       }
+       /* Logo span boyutları çok küçük ekranlar için ayarlandı */
+        .synapic-logo {
+            font-size: 32px;
+        }
+
 
       .kagi-text {
         font-size: 12px;
       }
     }
 
-    /* Dokunmatik efektler */
+    /* Dokunmatik efektler (mevcut kodunuzdan alındı) */
     @media (hover: none) {
       .menu-button:hover,
       .category-button:hover,
@@ -163,6 +175,7 @@
       }
     }
 
+    /* Genel stiller (mevcut kodunuzdan alındı) */
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background-color: var(--bg-primary);
@@ -175,12 +188,12 @@
       justify-content: center;
       overflow-x: hidden;
       padding: 0 16px;
-      background-image: radial-gradient(circle at top right, rgba(114, 137, 253, 0.08), transparent 40%), 
+      background-image: radial-gradient(circle at top right, rgba(114, 137, 253, 0.08), transparent 40%),
                         radial-gradient(circle at bottom left, rgba(114, 137, 253, 0.05), transparent 30%);
     }
 
     .light-theme {
-      background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 40%), 
+      background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 40%),
                         radial-gradient(circle at bottom left, rgba(99, 102, 241, 0.03), transparent 30%);
     }
 
@@ -295,6 +308,38 @@
       height: 250px;
       margin-bottom: 15px;
     }
+    /* Synapic Logo stilleri */
+    .synapic-logo {
+        font-size: 64px;
+        font-weight: 800;
+        letter-spacing: -3px;
+        margin-bottom: 15px;
+        text-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+
+    .synapic-logo span:nth-child(1) { color: #4285f4; }
+    .synapic-logo span:nth-child(2) { color: #ea4335; }
+    .synapic-logo span:nth-child(3) { color: #fbbc05; }
+    .synapic-logo span:nth-child(4) { color: #4285f4; }
+    .synapic-logo span:nth-child(5) { color: #34a853; }
+    .synapic-logo span:nth-child(6) { color: #ea4335; }
+    .synapic-logo span:nth-child(7) { color: #4285f4; }
+
+     /* Medya sorguları ana style bloğuna taşındı */
+    @media (max-width: 680px) {
+      .synapic-logo {
+        font-size: 40px;
+        letter-spacing: -2px;
+        margin-bottom: 10px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .synapic-logo {
+        font-size: 32px;
+      }
+    }
+
 
     .kagi-text {
       font-size: 14px;
@@ -453,28 +498,6 @@
       from { transform: translateY(30px); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
     }
-
-    @media (max-width: 680px) {
-      .search-input {
-        padding: 16px 20px;
-        padding-right: 85px;
-        font-size: 15px;
-      }
-      
-      .voice-search {
-        right: 50px;
-      }
-      
-      .category-button {
-        padding: 10px 16px;
-        font-size: 13px;
-      }
-      
-      .logo-container img {
-        width: 200px;
-        height: 200px;
-      }
-    }
   </style>
 </head>
 <body>
@@ -488,64 +511,30 @@
         <i class="fa-solid fa-moon"></i>
         <span>Karanlık Tema</span>
       </div>
-      <div class="overlay-item">
+      <a href="/manifesto"><div class="overlay-item">
         <i class="fa-solid fa-shield-halved"></i>
-        <a href="/manifesto"><span>Manifesto</span></a>
-      </div>
+        <span>Manifesto</span>
+      </div></a>
+       <a href="/iletisim"><div class="overlay-item">
+        <i class="fa-solid fa-envelope"></i>
+        <span>İletişim</span>
+      </div></a>
     </div>
   </div>
 
   <div class="search-container">
     <div class="logo-container">
       <div class="logo-container">
-  <div class="synapic-logo">
-    <span>S</span>
-    <span>y</span>
-    <span>n</span>
-    <span>a</span>
-    <span>p</span>
-    <span>i</span>
-    <span>c</span>
-  </div>
-</div>
-
-<style>
-.synapic-logo {
-  font-size: 64px;
-  font-weight: 800;
-  letter-spacing: -3px;
-  margin-bottom: 15px;
-  text-shadow: 0 4px 10px rgba(0,0,0,0.15);
-}
-
-.synapic-logo span:nth-child(1) { color: #4285f4; }
-.synapic-logo span:nth-child(2) { color: #ea4335; }
-.synapic-logo span:nth-child(3) { color: #fbbc05; }
-.synapic-logo span:nth-child(4) { color: #4285f4; }
-.synapic-logo span:nth-child(5) { color: #34a853; }
-.synapic-logo span:nth-child(6) { color: #ea4335; }
-.synapic-logo span:nth-child(7) { color: #4285f4; }
-
-@media (max-width: 680px) {
-  .synapic-logo {
-    font-size: 40px;
-    letter-spacing: -2px;
-    margin-bottom: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  .synapic-logo {
-    font-size: 32px;
-  }
-}
-</style>
+         <div class="synapic-logo">
+            <span>S</span><span>y</span><span>n</span><span>a</span><span>p</span><span>i</span><span>c</span>
+         </div>
+      </div>
       <div class="kagi-text">Sadece Bir Tarayıcı Değil.</div>
     </div>
 
     <form id="searchForm" class="search-box" action="/search" method="GET">
-      <input type="text" action="/search" method="GET"
-             class="search-input" 
+      <input type="text"
+             class="search-input"
              placeholder="Synapic Search En İyisidir..."
              id="searchQuery"
              name="query"
@@ -556,6 +545,7 @@
       <button type="submit" class="search-icon">
         <i class="fa-solid fa-search"></i>
       </button>
+       <input type="hidden" name="type" id="searchType" value="web">
     </form>
 
     <div class="categories-container">
@@ -563,15 +553,27 @@
         <i class="fa-solid fa-chevron-left"></i>
       </button>
       <div class="categories" id="categories">
-        <button class="category-button active">
+        <button class="category-button active" data-type="web">
           <i class="fa-solid fa-globe"></i>
           <span>WEB</span>
         </button>
-        <button class="category-button">
+        <button class="category-button" data-type="image">
           <i class="fa-solid fa-image"></i>
           <span>Resimler</span>
         </button>
-      </div>
+        <button class="category-button" data-type="news">
+          <i class="fa-solid fa-newspaper"></i>
+          <span>Haberler</span>
+        </button>
+         <button class="category-button" data-type="video">
+          <i class="fa-solid fa-video"></i>
+          <span>Videolar</span>
+        </button>
+         <button class="category-button" data-type="wiki">
+          <i class="fa-solid fa-book"></i>
+          <span>Wikipedia</span>
+        </button>
+         </div>
       <button class="scroll-button" id="scrollRight">
         <i class="fa-solid fa-chevron-right"></i>
       </button>
@@ -582,6 +584,7 @@
     <p>©2024 Aperture Labs.</p>
     <div class="footer-links">
       <a href="/manifesto" class="footer-link">Manifesto</a>
+       <a href="/iletisim" class="footer-link">İletişim</a>
     </div>
   </div>
 
@@ -592,15 +595,25 @@
 
     menuButton.addEventListener('click', () => {
       overlay.classList.toggle('active');
-      menuButton.innerHTML = overlay.classList.contains('active') 
-        ? '<i class="fa-solid fa-xmark"></i>' 
+      menuButton.innerHTML = overlay.classList.contains('active')
+        ? '<i class="fa-solid fa-xmark"></i>'
         : '<i class="fa-solid fa-bars"></i>';
     });
 
     // Theme Toggle
     const themeToggle = document.getElementById('themeToggle');
     const body = document.body;
-    let darkTheme = true;
+    let darkTheme = true; // Varsayılan tema karanlık
+
+    // Sayfa yüklendiğinde temayı localStorage'dan yükle veya varsayılanı ayarla
+    if (localStorage.getItem('darkTheme') !== null) {
+        darkTheme = localStorage.getItem('darkTheme') === 'true';
+    }
+    body.classList.toggle('light-theme', !darkTheme);
+    themeToggle.innerHTML = darkTheme
+        ? '<i class="fa-solid fa-moon"></i><span>Karanlık Tema</span>'
+        : '<i class="fa-solid fa-sun"></i><span>Açık Tema</span>';
+
 
     themeToggle.addEventListener('click', () => {
       darkTheme = !darkTheme;
@@ -608,14 +621,23 @@
       themeToggle.innerHTML = darkTheme
         ? '<i class="fa-solid fa-moon"></i><span>Karanlık Tema</span>'
         : '<i class="fa-solid fa-sun"></i><span>Açık Tema</span>';
+      // Tema tercihini localStorage'a kaydet
+      localStorage.setItem('darkTheme', darkTheme);
     });
 
-    // Category Buttons
-    document.querySelectorAll('.category-button').forEach(button => {
+
+    // Category Buttons - Update active class and hidden input
+    const categoryButtons = document.querySelectorAll('.category-button');
+    const searchTypeInput = document.getElementById('searchType'); // Gizli input
+
+    categoryButtons.forEach(button => {
       button.addEventListener('click', () => {
-        document.querySelectorAll('.category-button').forEach(btn => 
-          btn.classList.remove('active'));
+        // Tüm butonlardan 'active' sınıfını kaldır
+        categoryButtons.forEach(btn => btn.classList.remove('active'));
+        // Tıklanan butona 'active' sınıfını ekle
         button.classList.add('active');
+        // Gizli inputun değerini tıklanan butonun data-type'ı ile güncelle
+        searchTypeInput.value = button.dataset.type;
       });
     });
 
@@ -631,29 +653,91 @@
     // Voice Search
     const voiceButton = document.getElementById('voiceSearch');
     voiceButton.addEventListener('click', () => {
+      if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+           alert('Maalesef tarayıcınız sesli aramayı desteklemiyor.');
+           return;
+      }
       const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
       recognition.lang = 'tr-TR';
-      recognition.start();
-      
-      recognition.onresult = (e) => {
-        document.getElementById('searchQuery').value = e.results[0][0].transcript;
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      const micIcon = voiceButton.querySelector('.fa-solid');
+      micIcon.classList.remove('fa-microphone');
+      micIcon.classList.add('fa-microphone-slash');
+
+      recognition.onstart = () => {
+          console.log('Sesli arama başladı.');
       };
+
+      recognition.onresult = (e) => {
+        const transcript = e.results[0][0].transcript;
+        document.getElementById('searchQuery').value = transcript;
+        console.log('Konuşma tanındı:', transcript);
+         micIcon.classList.remove('fa-microphone-slash');
+         micIcon.classList.add('fa-microphone');
+        // Sesli arama tamamlandığında formu otomatik gönderebiliriz isteğe bağlı
+        // document.getElementById('searchForm').submit();
+      };
+
+      recognition.onerror = (e) => {
+        console.error('Sesli arama hatası:', e.error);
+         micIcon.classList.remove('fa-microphone-slash');
+         micIcon.classList.add('fa-microphone');
+      };
+
+       recognition.onend = () => {
+        console.log('Sesli arama sonlandı.');
+         micIcon.classList.remove('fa-microphone-slash');
+         micIcon.classList.add('fa-microphone');
+       };
+
+       recognition.start(); // Başlangıçta recognition.start() çağrılmalı
     });
 
-    // Form Submit (DÜZELTİLMİŞ KISIM)
+    // Form Submit
     document.getElementById('searchForm').addEventListener('submit', (e) => {
       e.preventDefault();
-      const activeButton = document.querySelector('.category-button.active');
-      const categoryButtons = Array.from(document.querySelectorAll('.category-button'));
-      const categoryIndex = categoryButtons.indexOf(activeButton);
-      const types = ['web', 'images', 'news'];
       const query = document.getElementById('searchQuery').value.trim();
-      
+      const selectedType = document.getElementById('searchType').value; // Gizli inputtan tipi al
+
       if (query) {
-        let url = `/search?type=${types[categoryIndex]}&query=${encodeURIComponent(query)}`;
+        let url = `/search?type=${selectedType}&query=${encodeURIComponent(query)}`;
         window.location.href = url;
       }
     });
-</script>
+
+    // Sayfa yüklendiğinde aktif butonu ayarla
+    window.addEventListener('load', () => {
+         const urlParams = new URLSearchParams(window.location.search);
+         const typeFromUrl = urlParams.get('type') || 'web'; // URL'de 'type' yoksa varsayılan 'web'
+
+         categoryButtons.forEach(button => {
+             if (button.dataset.type === typeFromUrl) {
+                 button.classList.add('active');
+                 searchTypeInput.value = typeFromUrl; // Gizli inputu da ayarla
+             } else {
+                 button.classList.remove('active');
+             }
+         });
+          // Eğer URL'de type yoksa ve varsayılan 'web' butonu bulunamazsa, ilk butonu default aktif yap
+         if (!document.querySelector('.category-button.active')) {
+             const defaultButton = document.querySelector('.category-button[data-type="web"]');
+             if (defaultButton) {
+                 defaultButton.classList.add('active');
+                 searchTypeInput.value = 'web';
+             } else if (categoryButtons.length > 0) {
+                  categoryButtons[0].classList.add('active');
+                  searchTypeInput.value = categoryButtons[0].dataset.type;
+             }
+         }
+
+        // Arama sorgusunu URL'den input alanına doldur
+        const queryFromUrl = urlParams.get('query') || urlParams.get('q') || '';
+        document.getElementById('searchQuery').value = queryFromUrl;
+
+    });
+
+  </script>
 </body>
 </html>
