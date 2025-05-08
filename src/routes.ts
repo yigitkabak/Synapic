@@ -1,11 +1,11 @@
 import { Express, Request, Response, NextFunction } from 'express';
-import axios from 'axios'; // Named import AxiosError kaldırıldı
+import axios from 'axios';
 import validApiKeys from '../views/json/ApiKeys.json';
 
 import {
     fetchWikiSummary,
     fetchBingImages,
-    fetchGoogleNewsResults,
+    fetchGnewsResults,
     fetchYoutubeResults,
     getAggregatedWebResults,
     checkBangRedirects,
@@ -81,7 +81,6 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
                  countryCode = geoData?.country || 'N/A';
 
             } catch (error: any) {
-                 // axios.isAxiosError kontrolü burada da eklenebilir, ancak şimdilik genel hata mesajı yeterli.
                  console.error("IP Info fetch error:", error.message);
             }
         }
@@ -101,7 +100,7 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
             switch (type) {
                 case 'web': mainFetchPromise = getAggregatedWebResults(query, start); renderData.searchSource = 'Web Results'; break;
                 case 'image': mainFetchPromise = fetchBingImages(query); renderData.searchSource = 'Image Results'; break;
-                case 'news': mainFetchPromise = fetchGoogleNewsResults(query, start); renderData.searchSource = 'News Results'; break;
+                case 'news': mainFetchPromise = fetchGnewsResults(query); renderData.searchSource = 'News Results (Gnews)'; break;
                 case 'wiki': mainFetchPromise = Promise.resolve([]); renderData.searchSource = 'Wikipedia Result'; break;
                 case 'video': mainFetchPromise = fetchYoutubeResults(query); renderData.searchSource = 'Video Results'; break;
                 default: mainFetchPromise = getAggregatedWebResults(query, start); renderData.type = 'web'; renderData.searchSource = 'Web Results (Fallback)';
@@ -146,7 +145,7 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
             switch (type) {
                 case 'web': mainFetchPromise = getAggregatedWebResults(query, start); searchSource = 'Aggregated Web'; break;
                 case 'image': mainFetchPromise = fetchBingImages(query); searchSource = 'Bing Images'; break;
-                case 'news': mainFetchPromise = fetchGoogleNewsResults(query, start); searchSource = 'Google News'; break;
+                case 'news': mainFetchPromise = fetchGnewsResults(query); searchSource = 'Gnews'; break;
                 case 'wiki': mainFetchPromise = Promise.resolve([]); searchSource = 'Wikipedia'; break;
                 case 'video': mainFetchPromise = fetchYoutubeResults(query); searchSource = 'YouTube Videos'; break;
                 default: mainFetchPromise = getAggregatedWebResults(query, start); searchSource = 'Aggregated Web (Fallback)'; type = 'web';
