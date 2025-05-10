@@ -8,7 +8,7 @@
     "build": "tsc",
     "start": "node dist/app.js",
     "build:npm": "npm install express axios cheerio body-parser dotenv ejs",
-    "build:mod": "npm install --save-dev typescript @types/node @types/express @types/axios @types/cheerio @types/body-parser @types/dotenv @types/ejs"
+    "build:mod": "npm install --save-dev typescript @types/node @types/express @types/cheerio @types/body-parser @types/dotenv @types/ejs"
   },
   "repository": {
     "type": "git",
@@ -37,13 +37,12 @@
     "express": "^5.1.0"
   },
   "devDependencies": {
-    "@types/axios": "^0.9.36",
     "@types/body-parser": "^1.19.5",
     "@types/cheerio": "^0.22.35",
     "@types/dotenv": "^6.1.1",
     "@types/ejs": "^3.1.5",
     "@types/express": "^5.0.1",
-    "@types/node": "^22.15.3",
+    "@types/node": "^22.15.17",
     "typescript": "^5.8.3"
   }
 }
