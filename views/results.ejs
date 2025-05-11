@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arama Sonuçları - Synapic Search</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/js/all.min.js" integrity="sha5384-u3fPA7V8qQmhBPNT5quvaXVa1mnnLSXUep5PS1qo5NRzHwG19aHmNJnj1QhpLoEzQEHCevBZNFAmmckqrKNhA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -49,6 +49,7 @@
             background-image: radial-gradient(circle at top right, rgba(114, 137, 253, 0.08), transparent 40%),
                             radial-gradient(circle at bottom left, rgba(114, 137, 253, 0.05), transparent 30%);
             min-height: 100vh;
+            overflow-y: scroll;
         }
         .light-theme body {
             background-image: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 40%),
@@ -62,10 +63,14 @@
             border: 1px solid var(--border-color);
             overflow: hidden;
         }
-        .result-card:hover {
+         .result-card > a:first-child {
+             display: block;
+         }
+        .result-card:not(.result-card > a:first-child):hover {
              background: var(--bg-tertiary);
              transform: translateY(-2px);
         }
+
         .image-result {
             border: 1px solid var(--border-color);
             transition: all 0.2s ease;
@@ -200,6 +205,9 @@
             filter: var(--logo-filter);
             transition: transform 0.2s ease;
         }
+         .light-theme .external-logos img {
+             filter: none;
+         }
          .external-logos a:hover img {
             transform: scale(1.1);
          }
@@ -222,6 +230,21 @@
              width: 100%;
              max-width: 700px;
          }
+         .news-image {
+             aspect-ratio: 16 / 9;
+         }
+         @media (min-width: 640px) {
+             .news-image {
+                 aspect-ratio: auto;
+                 width: 8rem;
+             }
+         }
+         @media (min-width: 768px) {
+             .news-image {
+                 width: 10rem;
+             }
+         }
+
     </style>
 </head>
 <body class="min-h-screen">
@@ -236,7 +259,7 @@
                   </div>
                 </a>
                 <div class="flex items-center space-x-2 sm:space-x-4">
-                    <button id="themeToggle" class="p-2 rounded-full hover:bg-[var(--button-bg)] transition-colors text-[var(--accent)] text-lg">
+                    <button id="themeToggle" class="p-2 rounded-full hover:bg-[var(--button-bg)] transition-colors text-[var(--accent)] text-lg" aria-label="Toggle Theme">
                         <i class="fa-solid fa-moon"></i> </button>
                 </div>
             </div>
@@ -251,8 +274,9 @@
                                name="query"
                                id="queryInput" value="<%= query %>"
                                placeholder="Synapic'ta ara..."
-                               class="search-input w-full bg-transparent outline-none px-3 sm:px-5 py-2 text-sm sm:text-base text-[var(--text-primary)] placeholder-[var(--text-secondary)]">
-                        <button type="submit" class="p-2 rounded-full hover:bg-[var(--button-hover)] transition-colors mr-1">
+                               class="search-input w-full bg-transparent outline-none px-3 sm:px-5 py-2 text-sm sm:text-base text-[var(--text-primary)] placeholder-[var(--text-secondary)]"
+                               autocomplete="off" aria-label="Arama Sorgusu">
+                        <button type="submit" class="p-2 rounded-full hover:bg-[var(--button-hover)] transition-colors mr-1" aria-label="Ara">
                             <i class="fa-solid fa-search text-[var(--text-secondary)] text-base sm:text-lg"></i>
                         </button>
                     </div>
@@ -260,17 +284,17 @@
                  <ul id="suggestionsList" class="hidden"></ul>
             </div>
 
-            <%# Main Tab Row - Includes Web, Image, Wiki, Video %>
-            <div id="mainTabs" class="tab-row mt-4 sm:mt-5">
+            <div class="tab-row mt-4 sm:mt-5">
                  <%
-                    const mainTabs = [
+                    const searchTabs = [
                         { id: 'web', name: 'Web', icon: 'fa-solid fa-globe' },
                         { id: 'image', name: 'Görseller', icon: 'fa-solid fa-image' },
                         { id: 'wiki', name: 'Wiki', icon: 'fa-brands fa-wikipedia-w' },
-                        { id: 'video', name: 'Videolar', icon: 'fa-solid fa-video' }
+                        { id: 'video', name: 'Videolar', icon: 'fa-solid fa-video' },
+                        { id: 'news', name: 'Haberler', icon: 'fa-solid fa-newspaper' }
                     ];
                  %>
-                 <% mainTabs.forEach(tabInfo => { %>
+                 <% searchTabs.forEach(tabInfo => { %>
                     <button type="submit"
                             name="type"
                             value="<%= tabInfo.id %>"
@@ -282,19 +306,31 @@
                 <% }) %>
             </div>
 
-            <%# Ayırıcı Çizgi %>
             <div class="tab-divider"></div>
+
+             <% if (type === 'web') { %>
+                 <input type="hidden" name="start" value="<%= start %>">
+             <% } else { %>
+                 <input type="hidden" name="start" value="0">
+             <% } %>
+
 
         </form>
 
+        <% if (errorMessage) { %>
+             <div class="max-w-3xl mx-auto p-4 sm:p-5 bg-red-900/20 border border-red-700/50 text-red-400 rounded-lg mb-6 sm:mb-8" role="alert">
+                 <i class="fa-solid fa-circle-exclamation mr-2"></i> <%= errorMessage %>
+             </div>
+        <% } %>
+
+
         <div class="space-y-4 sm:space-y-6">
             <%
-                const showPrimaryResultsGrid = (type === 'web');
-                let itemsToDisplayForPrimaryGrid = results;
+                const showPrimaryWebPagination = (type === 'web');
             %>
-            <% if (showPrimaryResultsGrid && itemsToDisplayForPrimaryGrid && itemsToDisplayForPrimaryGrid.length > 0) { %>
+            <% if (type === 'web' && results && results.length > 0) { %>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                    <% itemsToDisplayForPrimaryGrid.forEach(item => { %>
+                    <% results.forEach(item => { %>
                         <div class="result-card">
                            <a href="<%= item.link %>"
                               target="_blank" rel="noopener noreferrer"
@@ -320,19 +356,23 @@
                     <% }) %>
                 </div>
                  <%
-                    const itemsPerPage = 10;
-                    const currentPage = Math.floor(start / itemsPerPage) + 1;
-                    const prevStart = Math.max(0, start - itemsPerPage);
-                    const nextStart = start + itemsPerPage;
-                    const showPagination = showPrimaryResultsGrid && itemsToDisplayForPrimaryGrid.length === itemsPerPage;
+                    const itemsPerPageWeb = 10;
+                    const currentPageWeb = Math.floor(start / itemsPerPageWeb) + 1;
+                    const prevStartWeb = Math.max(0, start - itemsPerPageWeb);
+                    const nextStartWeb = start + itemsPerPageWeb;
+                    const showNextWeb = results && results.length === itemsPerPageWeb;
                  %>
-                 <% if (showPagination) { %>
+                 <% if (showNextWeb || start > 0) { %>
                     <div class="pagination flex justify-center mt-6 sm:mt-8">
                         <% if (start > 0) { %>
-                            <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= prevStart %>"><i class="fa-solid fa-arrow-left mr-1.5"></i>Önceki</a>
+                            <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= prevStartWeb %>"><i class="fa-solid fa-arrow-left mr-1.5"></i>Önceki</a>
                         <% } %>
-                        <span class="current"><%= currentPage %></span>
-                        <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= nextStart %>">Sonraki<i class="fa-solid fa-arrow-right ml-1.5"></i></a>
+                        <% if (showNextWeb || start > 0) { %>
+                            <span class="current"><%= currentPageWeb %></span>
+                        <% } %>
+                        <% if (showNextWeb) { %>
+                            <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= nextStartWeb %>">Sonraki<i class="fa-solid fa-arrow-right ml-1.5"></i></a>
+                        <% } %>
                     </div>
                 <% } %>
             <% } %>
@@ -341,7 +381,8 @@
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
                     <% images.forEach(img => { %>
                         <div class="image-result rounded-lg overflow-hidden cursor-pointer aspect-square"
-                             onclick="openModal('<%= img.image %>', '<%= img.title || 'Görsel' %>')">
+                             onclick="openModal('<%= img.image %>', '<%= img.title || 'Görsel' %>')"
+                             role="button" aria-label="Görseli Büyüt">
                             <img src="<%= img.thumbnail || img.image %>"
                                  alt="<%= img.title || 'Resim' %>"
                                  loading="lazy"
@@ -349,15 +390,21 @@
                         </div>
                     <% }) %>
                 </div>
-                 <% if (type === 'image' && images.length > 0) { %>
+                 <%
+                    const itemsPerPageImage = 20;
+                     const prevStartImg = Math.max(0, start - itemsPerPageImage);
+                     const nextStartImg = start + itemsPerPageImage;
+                     const showNextImage = type === 'image' && images && images.length === itemsPerPageImage;
+                 %>
+                 <% if (showNextImage || start > 0) { %>
                      <div class="pagination flex justify-center mt-6 sm:mt-8">
-                         <% const prevStartImg = Math.max(0, start - 20); %>
                          <% if (start > 0) { %>
                             <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= prevStartImg %>"><i class="fa-solid fa-arrow-left mr-1.5"></i>Önceki</a>
                          <% } %>
-                         <span class="current"><%= Math.floor(start / 20) + 1 %></span>
-                         <% if (images.length >= 20) { %>
-                             <% const nextStartImg = start + 20; %>
+                         <% if (showNextImage || start > 0) { %>
+                            <span class="current"><%= Math.floor(start / itemsPerPageImage) + 1 %></span>
+                         <% } %>
+                         <% if (showNextImage) { %>
                              <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= nextStartImg %>">Sonraki<i class="fa-solid fa-arrow-right ml-1.5"></i></a>
                          <% } %>
                      </div>
@@ -391,7 +438,7 @@
                     <% videos.forEach(video => { %>
                         <div class="result-card flex flex-col">
                             <a href="<%= video.url %>" target="_blank" rel="noopener noreferrer" class="block hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors duration-200 flex-grow">
-                                <div class="video-thumbnail relative aspect-video overflow-hidden">
+                                <div class="video-thumbnail relative aspect-video overflow-hidden rounded-t-lg">
                                     <img src="<%= video.thumbnail %>" alt="<%= video.title %>" loading="lazy" class="w-full h-full object-cover">
                                      <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 opacity-0 hover:opacity-100 transition-opacity duration-200">
                                         <i class="fa-solid fa-play text-white text-3xl"></i>
@@ -407,31 +454,77 @@
                         </div>
                     <% }); %>
                 </div>
-                 <% if (type === 'video' && videos.length === 10) { %>
+                 <%
+                     const itemsPerPageVideo = 10;
+                     const prevStartVideo = Math.max(0, start - itemsPerPageVideo);
+                     const nextStartVideo = start + itemsPerPageVideo;
+                     const showNextVideo = type === 'video' && videos && videos.length === itemsPerPageVideo;
+                 %>
+                 <% if (showNextVideo || start > 0) { %>
                      <div class="pagination flex justify-center mt-6 sm:mt-8">
-                         <% const prevStartVideo = Math.max(0, start - 10); %>
                          <% if (start > 0) { %>
                             <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= prevStartVideo %>"><i class="fa-solid fa-arrow-left mr-1.5"></i>Önceki</a>
                          <% } %>
-                         <span class="current"><%= Math.floor(start / 10) + 1 %></span>
-                         <% const nextStartVideo = start + 10; %>
-                         <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= nextStartVideo %>">Sonraki<i class="fa-solid fa-arrow-right ml-1.5"></i></a>
+                         <% if (showNextVideo || start > 0) { %>
+                            <span class="current"><%= Math.floor(start / itemsPerPageVideo) + 1 %></span>
+                         <% } %>
+                         <% if (showNextVideo) { %>
+                             <a href="/search?query=<%= encodeURIComponent(query) %>&type=<%= type %>&start=<%= nextStartVideo %>">Sonraki<i class="fa-solid fa-arrow-right ml-1.5"></i></a>
+                         <% } %>
                      </div>
                  <% } %>
+            <% } %>
+
+            <% if (type === 'news' && newsResults && newsResults.length > 0) { %>
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                     <% newsResults.forEach(newsItem => { %>
+                         <div class="result-card flex flex-col sm:flex-row">
+                             <% if (newsItem.image) { %>
+                                 <a href="<%= newsItem.link %>" target="_blank" rel="noopener noreferrer" class="flex-shrink-0 w-full sm:w-32 md:w-40 news-image overflow-hidden rounded-t-lg sm:rounded-t-none sm:rounded-l-lg">
+                                     <img src="<%= newsItem.image %>" alt="<%= newsItem.title %>" loading="lazy" class="w-full h-full object-cover">
+                                 </a>
+                             <% } %>
+                             <div class="p-4 sm:p-5 flex-grow flex flex-col justify-between">
+                                 <a href="<%= newsItem.link %>" target="_blank" rel="noopener noreferrer" class="block">
+                                     <h3 class="font-semibold text-[var(--text-primary)] text-base sm:text-lg mb-1 hover:text-[var(--accent)] leading-tight">
+                                         <%= newsItem.title %>
+                                     </h3>
+                                     <p class="text-xs sm:text-sm text-[var(--text-secondary)] mb-2 leading-relaxed">
+                                         <%= newsItem.snippet || 'Özet bulunamadı.' %>
+                                     </p>
+                                 </a>
+                                 <p class="text-[10px] sm:text-xs text-[var(--text-secondary)]/70 truncate mt-auto">
+                                     <%= newsItem.source %> -
+                                     <%
+                                        let formattedDate = newsItem.date;
+                                        try {
+                                            const date = new Date(newsItem.date);
+                                            if (!isNaN(date.getTime())) {
+                                                formattedDate = date.toLocaleDateString('tr-TR', { year: 'numeric', month: 'long', day: 'numeric' });
+                                            }
+                                        } catch (e) {
+                                        }
+                                     %>
+                                     <%= formattedDate %>
+                                 </p>
+                             </div>
+                         </div>
+                     <% }) %>
+                 </div>
             <% } %>
 
 
             <%
                 let noResultsFound = false;
                 if (query) {
-                    if (type === 'web' && (!results || results.length === 0)) {
-                         noResultsFound = true;
-                    } else if (type === 'image' && (!images || images.length === 0)) {
-                        noResultsFound = true;
-                    } else if (type === 'wiki' && !wiki) {
-                        noResultsFound = true;
-                    } else if (type === 'video' && (!videos || videos.length === 0)) {
-                        noResultsFound = true;
+                    if (type === 'web' && (!results || results.length === 0)) { noResultsFound = true; }
+                    else if (type === 'image' && (!images || images.length === 0)) { noResultsFound = true; }
+                    else if (type === 'wiki' && !wiki) { noResultsFound = true; }
+                    else if (type === 'video' && (!videos || videos.length === 0)) { noResultsFound = true; }
+                    else if (type === 'news' && (!newsResults || newsResults.length === 0)) { noResultsFound = true; }
+
+                    if (errorMessage) {
+                        noResultsFound = false;
                     }
                 }
              %>
@@ -446,6 +539,8 @@
                          <p class="text-base sm:text-lg font-medium text-[var(--text-primary)]">"<%= query %>" için Wikipedia sonucu bulunamadı.</p>
                     <% } else if (type === 'video') { %>
                          <p class="text-base sm:text-lg font-medium text-[var(--text-primary)]">"<%= query %>" için video sonucu bulunamadı.</p>
+                    <% } else if (type === 'news') { %>
+                         <p class="text-base sm:text-lg font-medium text-[var(--text-primary)]">"<%= query %>" için haber sonucu bulunamadı.</p>
                     <% } %>
 
                     <p class="text-sm sm:text-base mt-1 mb-6">Başka bir arama türünü veya farklı bir arama motorunu deneyebilirsiniz.</p>
@@ -463,6 +558,22 @@
                     </div>
                 </div>
             <% } %>
+
+            <%
+                let currentPageStatus = 1;
+                let itemsPerPageStatus = 10;
+                if (type === 'image') itemsPerPageStatus = 20;
+
+                if (type === 'web' || type === 'image' || type === 'video') {
+                     currentPageStatus = Math.floor(start / itemsPerPageStatus) + 1;
+                 }
+            %>
+            <% if (!errorMessage && (results?.length > 0 || images?.length > 0 || videos?.length > 0 || newsResults?.length > 0 || wiki)) { %>
+                <div class="text-center text-[var(--text-secondary)] text-sm mt-8">
+                     <% if (type === 'web' || type === 'image' || type === 'video') 
+                     %>
+                </div>
+            <% } %>
         </div>
     </main>
 
@@ -470,7 +581,7 @@
          <div class="relative max-w-[95%] sm:max-w-4xl w-auto p-2 sm:p-4" onclick="event.stopPropagation()">
              <img id="modalImage" class="rounded-lg shadow-xl max-h-[75vh] sm:max-h-[85vh] mx-auto object-contain block border-2 border-[var(--bg-tertiary)]" alt="Arama Görseli">
               <button onclick="closeModal()"
-                    class="absolute top-2 right-2 sm:top-3 sm:right-3 p-2 rounded-full bg-[var(--bg-secondary)]/80 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors z-10 leading-none">
+                    class="absolute top-2 right-2 sm:top-3 sm:right-3 p-2 rounded-full bg-[var(--bg-secondary)]/80 hover:bg-[var(--bg-tertiary)] text-[var(--text-primary)] transition-colors z-10 leading-none" aria-label="Kapat">
                 <i class="fa-solid fa-xmark text-xl"></i>
             </button>
             <p id="imageUrl" class="text-center text-xs text-[var(--text-secondary)] mt-2 truncate px-4 break-all"></p>
@@ -494,7 +605,6 @@
                 localStorage.setItem('theme', 'light');
             }
         }
-        themeToggle.addEventListener('click', () => { isDark = !isDark; applyTheme(isDark); });
         applyTheme(isDark);
 
         const imageModal = document.getElementById('imageModal');
@@ -529,7 +639,6 @@
             }
         });
 
-
         const queryInput = document.getElementById('queryInput');
         const suggestionsList = document.getElementById('suggestionsList');
         const searchForm = document.getElementById('searchForm');
@@ -538,10 +647,31 @@
         async function fetchSuggestions(query) {
             if (query.length < 2) return [];
             const dummySuggestions = [
-                `${query} nedir`, `${query} hakkında`, `${query} son gelişmeler`, "hava durumu", "dolar kuru",
-                "yapay zeka", "synapic search", "teknoloji haberleri", "güncel olaylar", "türkiye ekonomi"
+                 `${query} nedir`, `${query} nasıl yapılır`, `${query} yorumları`,
+                 `${query} son dakika`, `${query} haberleri`, `${query} fiyatları`,
+                 "hava durumu istanbul", "dolar kuru canlı", "euro kuru canlı",
+                 "yapay zeka haberleri", "teknoloji haberleri", "spor haberleri",
+                 "güncel olaylar türkiye", "synapic search manifesto", "en iyi arama motorları"
             ];
-            return dummySuggestions.filter(s => s.toLowerCase().includes(query.toLowerCase()) || query.toLowerCase().includes(s.toLowerCase())).slice(0, 8);
+             const relevantSuggestions = dummySuggestions
+                .filter(s => s.toLowerCase().includes(query.toLowerCase()))
+                .sort((a, b) => {
+                     const aStarts = a.toLowerCase().startsWith(query.toLowerCase());
+                     const bStarts = b.toLowerCase().startsWith(query.toLowerCase());
+                     if (aStarts && !bStarts) return -1;
+                     if (!aStarts && bStarts) return 1;
+                     return a.length - b.length;
+                 });
+
+            const exactMatchIndex = relevantSuggestions.findIndex(s => s.toLowerCase() === query.toLowerCase());
+            if (exactMatchIndex !== -1) {
+                const exactMatch = relevantSuggestions[exactMatchIndex];
+                relevantSuggestions.splice(exactMatchIndex, 1);
+                relevantSuggestions.unshift(exactMatch);
+            }
+
+
+            return relevantSuggestions.slice(0, 8);
         }
 
         function displaySuggestions(suggestions) {
@@ -575,12 +705,14 @@
                 } else {
                     suggestionsList.classList.add('hidden');
                 }
+                 selectedSuggestionIndex = -1;
+                 delete queryInput.dataset.originalQuery;
             }, 250);
         });
 
         queryInput.addEventListener('focus', async () => {
              const query = queryInput.value.trim();
-             if (query.length > 0 && suggestionsList.children.length === 0) {
+             if (query.length > 0 && suggestionsList.classList.contains('hidden')) {
                  const suggestions = await fetchSuggestions(query);
                  displaySuggestions(suggestions);
              } else if (suggestionsList.children.length > 0) {
@@ -591,16 +723,25 @@
         queryInput.addEventListener('blur', () => {
              setTimeout(() => {
                  suggestionsList.classList.add('hidden');
+                 if (selectedSuggestionIndex > -1) {
+                      const items = suggestionsList.querySelectorAll('li');
+                      if (items[selectedSuggestionIndex]) items[selectedSuggestionIndex].classList.remove('selected');
+                 }
+                 selectedSuggestionIndex = -1;
+                 delete queryInput.dataset.originalQuery;
              }, 150);
          });
 
 
         queryInput.addEventListener('keydown', (e) => {
             const items = suggestionsList.querySelectorAll('li');
-            if (items.length === 0 && e.key !== 'Enter') return;
 
-            if (selectedSuggestionIndex === -1 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-                 queryInput.dataset.originalQuery = queryInput.value;
+            if (items.length === 0 && e.key !== 'Enter' && e.key !== 'Escape') return;
+
+             if (selectedSuggestionIndex === -1 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+                 if (queryInput.dataset.originalQuery === undefined) {
+                     queryInput.dataset.originalQuery = queryInput.value;
+                 }
             }
 
             if (e.key === 'ArrowDown') {
@@ -610,7 +751,7 @@
                     selectedSuggestionIndex++;
                     items[selectedSuggestionIndex].classList.add('selected');
                     queryInput.value = items[selectedSuggestionIndex].textContent;
-                     items[selectedSuggestionIndex].scrollIntoView({ block: 'nearest' });
+                     items[selectedSuggestionIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                 }
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
@@ -619,34 +760,57 @@
                     selectedSuggestionIndex--;
                     items[selectedSuggestionIndex].classList.add('selected');
                     queryInput.value = items[selectedSuggestionIndex].textContent;
-                     items[selectedSuggestionIndex].scrollIntoView({ block: 'nearest' });
+                     items[selectedSuggestionIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                 } else if (selectedSuggestionIndex === 0) {
                     items[selectedSuggestionIndex].classList.remove('selected');
                     selectedSuggestionIndex = -1;
                     queryInput.value = queryInput.dataset.originalQuery || '';
-                } else {
-                     queryInput.value = queryInput.dataset.originalQuery || '';
-                }
+                    delete queryInput.dataset.originalQuery;
+                 }
+                 else if (selectedSuggestionIndex === -1 && queryInput.dataset.originalQuery !== undefined) {
+                      queryInput.value = queryInput.dataset.originalQuery;
+                      delete queryInput.dataset.originalQuery;
+                 }
+
             } else if (e.key === 'Enter') {
                 if (selectedSuggestionIndex > -1 && items[selectedSuggestionIndex]) {
                      e.preventDefault();
-                     items[selectedSuggestionIndex].dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
+                     queryInput.value = items[selectedSuggestionIndex].textContent;
+                     suggestionsList.classList.add('hidden');
+                     delete queryInput.dataset.originalQuery;
+                     searchForm.submit();
                 } else {
                     suggestionsList.classList.add('hidden');
+                     delete queryInput.dataset.originalQuery;
                 }
-                delete queryInput.dataset.originalQuery;
             } else if (e.key === 'Escape') {
                  suggestionsList.classList.add('hidden');
-                 if (selectedSuggestionIndex > -1 && items[selectedSuggestionIndex]) items[selectedSuggestionIndex].classList.remove('selected');
+                 if (selectedSuggestionIndex > -1) {
+                      const items = suggestionsList.querySelectorAll('li');
+                      if (items[selectedSuggestionIndex]) items[selectedSuggestionIndex].classList.remove('selected');
+                 }
                  selectedSuggestionIndex = -1;
-                 queryInput.value = queryInput.dataset.originalQuery || queryInput.value;
-                 delete queryInput.dataset.originalQuery;
+                 if (queryInput.dataset.originalQuery !== undefined) {
+                     queryInput.value = queryInput.dataset.originalQuery;
+                     delete queryInput.dataset.originalQuery;
+                 }
             } else {
-                 if (selectedSuggestionIndex > -1 && items[selectedSuggestionIndex]) items[selectedSuggestionIndex].classList.remove('selected');
-                 selectedSuggestionIndex = -1;
-                 delete queryInput.dataset.originalQuery;
+                 if (selectedSuggestionIndex > -1) {
+                     const items = suggestionsList.querySelectorAll('li');
+                     if (items[selectedSuggestionIndex]) items[selectedSuggestionIndex].classList.remove('selected');
+                     selectedSuggestionIndex = -1;
+                     delete queryInput.dataset.originalQuery;
+                 }
             }
         });
+
+        const tabButtons = document.querySelectorAll('.tab-row button[type="submit"]');
+        tabButtons.forEach(button => {
+            button.addEventListener('click', function(event) {
+                searchForm.query.value = queryInput.value;
+            });
+        });
+
     </script>
 </body>
 </html>
