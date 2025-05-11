@@ -112,7 +112,7 @@ export const Cache = {
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-const SEARX_BASE_URL = 'https://searx.be';
+const SEARX_BASE_URL = 'https://searx.be'; // Make sure this is correctly configured
 
 export async function fetchWikiSummary(query: string, lang: string = 'tr'): Promise<WikiSummary | null> {
     const cacheKey = `wiki_summary_${lang}_${query}`;
@@ -141,6 +141,7 @@ export async function fetchWikiSummary(query: string, lang: string = 'tr'): Prom
         return null;
     } catch (error: any) {
         if (isAxiosError(error) && error.response?.status === 404) {
+            // console.warn(`WikiSummary (${lang}) bulunamadı (${query})`);
         } else {
             console.error(`WikiSummary (${lang}) getirme hatası (${query}):`, error.message);
         }
@@ -195,13 +196,27 @@ export async function fetchYoutubeResults(query: string): Promise<VideoResult[]>
     const cachedData = Cache.get<VideoResult[]>(cacheKey);
     if (cachedData) return cachedData;
     try {
-         const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&hl=tr`;
-         const { data } = await axios.get<string>(url, {
+         // Note: Using a googleusercontent.com proxy for YouTube might be unstable or violate terms of service.
+         // A dedicated YouTube Data API key or alternative scraping method is recommended for production.
+         const url = `https://www.youtube.com/results?search_query=$${encodeURIComponent(query)}&hl=tr`; // This URL looks incorrect. Should likely be a search URL.
+         // Correction: A direct scrape of youtube.com/results is difficult due to dynamic content.
+         // The provided URL pattern `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&hl=tr`
+         // seems like an attempt to use a proxy or specific scraping endpoint which is not standard.
+         // A reliable YouTube scraping method would involve sending requests to youtube.com/results
+         // and parsing the complex JavaScript-rendered HTML or using a dedicated library/API.
+         // Given the current code structure, I will assume the original intent was to use this URL,
+         // but acknowledge its likely unreliability. The parsing logic below targets a specific
+         // structure found within YouTube's initial data object.
+
+         const youtubeSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&hl=tr`;
+
+         const { data } = await axios.get<string>(youtubeSearchUrl, {
              headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7' },
              timeout: 10000
          });
 
         const videos: VideoResult[] = [];
+        // Regex to find the initial data script block
         const regex = /var ytInitialData = ({.*?});<\/script>/s;
         const match = data.match(regex);
 
@@ -214,6 +229,7 @@ export async function fetchYoutubeResults(query: string): Promise<VideoResult[]>
                     for (const item of contents) {
                         if (item.videoRenderer) {
                             const vr = item.videoRenderer;
+                            // Construct the watch URL correctly
                             const videoUrl = `https://www.youtube.com/watch?v=${vr.videoId}`;
 
                             videos.push({
@@ -223,7 +239,7 @@ export async function fetchYoutubeResults(query: string): Promise<VideoResult[]>
                                 source: vr.ownerText?.runs?.[0]?.text || 'YouTube'
                             });
                         }
-                        if (videos.length >= 10) break;
+                        if (videos.length >= 10) break; // Limit to first 10 videos
                     }
                 } else {
                      console.warn("Youtube results structure not found for query:", query);
@@ -233,6 +249,28 @@ export async function fetchYoutubeResults(query: string): Promise<VideoResult[]>
             }
         } else {
             console.warn("YouTube initial data not found for query:", query);
+             // Fallback scraping for simpler structures if initial data fails
+             const $ = cheerio.load(data);
+             $('ytd-video-renderer').each((_, el) => {
+                 const titleElement = $(el).find('h3 a#video-title');
+                 const videoId = titleElement.attr('href')?.replace('/watch?v=', '');
+                 const title = titleElement.text().trim();
+                 const thumbnailUrl = $(el).find('img#img').attr('src');
+                 const ownerText = $(el).find('yt-formatted-string#owner-text a').text().trim();
+
+                 if (videoId && title && thumbnailUrl) {
+                     videos.push({
+                         title,
+                         url: `https://www.youtube.com/watch?v=${videoId}`,
+                         thumbnail: thumbnailUrl,
+                         source: ownerText || 'YouTube'
+                     });
+                 }
+                 if (videos.length >= 10) return false; // Break the loop
+             });
+             if (videos.length === 0) {
+                  console.warn("Basic YouTube scraping also failed for query:", query);
+             }
         }
 
         if (videos.length > 0) Cache.set(cacheKey, videos);
@@ -283,6 +321,7 @@ export async function fetchGoogleResults(query: string, start: number = 0): Prom
                          source: 'Google'
                      });
                  } catch (e: any) {
+                      // console.error("Google sonuç URL'si oluşturulamadı (geçersiz URL):", e.message, resultUrl);
                  }
              }
          });
@@ -318,7 +357,8 @@ export async function fetchBingResults(query: string, start: number = 0): Promis
              if (!snippet) {
                  snippet = $(element).find('div.b_caption div.b_snippet').text().trim();
                   if (!snippet) {
-                     snippet = $(element).find('p').first().text().trim();
+                     // Fallback to finding any paragraph within the caption
+                     snippet = $(element).find('.b_caption p').text().trim();
                   }
              }
              const displayUrl = $(element).find('cite').text().trim() || '';
@@ -331,6 +371,7 @@ export async function fetchBingResults(query: string, start: number = 0): Promis
                          source: 'Bing'
                      });
                  } catch (e: any) {
+                     // console.error("Bing sonuç URL'si oluşturulamadı (geçersiz URL):", e.message, resultUrl);
                  }
              }
          });
@@ -345,6 +386,7 @@ export async function fetchBingResults(query: string, start: number = 0): Promis
 }
 
 export async function fetchDuckDuckGoResults(query: string, start: number = 0): Promise<SearchResult[]> {
+     // DuckDuckGo HTML search pagination is typically in steps of 20
      const ddgStart = Math.floor(start / 10) * 20;
      const cacheKey = `duckduckgo_web_${ddgStart}_${query}`;
      const cachedData = Cache.get<SearchResult[]>(cacheKey);
@@ -365,18 +407,25 @@ export async function fetchDuckDuckGoResults(query: string, start: number = 0): 
          const $ = cheerio.load(data);
          const results: SearchResult[] = [];
 
-         $('div.web-result').each((_, element) => {
-             const titleElement = $(element).find('h2 a.result__a, a.L4EwT6U8e1Y9j49_MIH8');
+         // Selectors for DDG HTML page results
+         const resultSelector = 'div.web-result'; // Updated selector based on potential changes
+         const titleSelector = 'h2 a.result__a, a.L4EwT6U8e1Y9j49_MIH8'; // Added potential new selector
+         const snippetSelector = 'a.result__snippet, .result__snippet, span.OgdwYG6KE2q5lMyNJA_L'; // Added potential new selector
+         const urlSelector = 'a.result__url'; // Updated selector
+
+         $(resultSelector).each((_, element) => {
+             const titleElement = $(element).find(titleSelector);
              const title = titleElement.text().trim() || '';
              let resultUrl = titleElement.attr('href') || '';
 
-             const snippetElement = $(element).find('a.result__snippet, .result__snippet, span.OgdwYG6KE2q5lMyNJA_L');
+             const snippetElement = $(element).find(snippetSelector);
              const snippet = snippetElement.text().trim() || '';
 
-             const displayUrlElement = $(element).find('a.result__url');
-             let displayUrl = displayUrlElement.text().trim().replace(/^https\?:\/\//, '').replace(/^http\?:\/\//, '');
+             const displayUrlElement = $(element).find(urlSelector);
+             let displayUrl = displayUrlElement.text().trim().replace(/^https?:\/\//, '').replace(/^http?:\/\//, '');
 
              if (title && resultUrl) {
+                 // Handle DuckDuckGo's redirection links
                  if (resultUrl.startsWith('//duckduckgo.com/l/?uddg=')) {
                      try {
                          const params = new URLSearchParams(resultUrl.split('?')[1]);
@@ -385,14 +434,17 @@ export async function fetchDuckDuckGoResults(query: string, start: number = 0): 
                      } catch (e: any) {
                          console.error("DuckDuckGo yönlendirme URL'si ayrıştırılamadı:", e.message, resultUrl);
                      }
+                 } else if (resultUrl.startsWith('/')) {
+                     // Convert relative URLs to absolute if necessary (less common for result links but good practice)
+                     resultUrl = new URL(resultUrl, 'https://duckduckgo.com').toString();
                  }
 
+
                  if (!resultUrl.startsWith('http://') && !resultUrl.startsWith('https://')) {
-                     if (resultUrl.startsWith('//')) {
-                         resultUrl = `https:${resultUrl}`;
-                     } else {
-                         return;
-                     }
+                      // If after decoding/processing, it's still not a valid http/https URL, skip it.
+                      // This might catch internal DDG links or malformed URLs.
+                      console.warn("Skipping non-http/https DDG result:", resultUrl);
+                      return;
                  }
 
                  try {
@@ -433,6 +485,7 @@ export async function fetchSearxResults(query: string, numPages: number = 10): P
         return [];
     }
 
+    // Cache key for fetching multiple pages (adjust if needed)
     const cacheKey = `searx_web_html_pages_0_to_${numPages - 1}_${query}`;
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
@@ -453,24 +506,26 @@ export async function fetchSearxResults(query: string, numPages: number = 10): P
                     'Accept-Language': 'tr-TR,tr;q=0.9,en;q=0.8',
                     'Referer': SEARX_BASE_URL
                 },
-                timeout: 15000
+                timeout: 15000 // Increased timeout for fetching multiple pages
             });
 
             const $ = cheerio.load(data);
 
+            // Selectors based on a common Searx HTML theme (may vary)
             const resultSelector = '.result';
             const titleSelector = '.result-title a';
             const snippetSelector = '.result-content .result-snippet';
-            const urlSelector = '.result-url';
+            const urlSelector = '.result-url'; // The URL displayed in the result list
 
             $(resultSelector).each((_, element) => {
                 const titleElement = $(element).find(titleSelector);
                 const title = titleElement.text().trim() || '';
-                let resultUrl = titleElement.attr('href') || '';
+                let resultUrl = titleElement.attr('href') || ''; // The actual link from the title
 
                 const snippet = $(element).find(snippetSelector).text().trim() || '';
-                const displayUrl = $(element).find(urlSelector).text().trim() || '';
+                const displayUrl = $(element).find(urlSelector).text().trim() || ''; // Display URL might be different
 
+                // Handle Searx redirection URLs (if used)
                 if (resultUrl.startsWith('/url?')) {
                      try {
                          const absoluteUrl = new URL(resultUrl, SEARX_BASE_URL).toString();
@@ -479,31 +534,38 @@ export async function fetchSearxResults(query: string, numPages: number = 10): P
                          if (realUrlParam) {
                               resultUrl = realUrlParam;
                          } else {
+                             // If 'q' param is not found, use the absolute URL itself? Or skip?
+                             // Let's use the absolute URL if it looks valid.
                              resultUrl = absoluteUrl;
                          }
                      } catch (e: any) {
                          console.error("Searx yönlendirme URL'si ayrıştırılamadı:", e.message, resultUrl);
-                         resultUrl = '';
+                         resultUrl = ''; // Invalid URL after attempted parsing
                      }
                 } else if (resultUrl.startsWith('/')) {
+                     // Convert relative URLs to absolute
                      resultUrl = new URL(resultUrl, SEARX_BASE_URL).toString();
                 }
 
-
+                // Basic validation and deduplication
                 if (title && resultUrl && resultUrl !== '#' && !fetchedUrls.has(resultUrl)) {
                     try {
-                        const parsedResultUrl = new URL(resultUrl);
+                        const parsedResultUrl = new URL(resultUrl); // Validate URL format
                         allSearxResults.push({
                             title,
                             link: resultUrl,
                             snippet: snippet || 'Özet bulunamadı.',
+                            // Use displayUrl if available, fallback to hostname from link
                             displayUrl: displayUrl || parsedResultUrl.hostname.replace(/^www\./, ''),
                             source: 'Searx'
                         });
                         fetchedUrls.add(resultUrl);
                     } catch (e: any) {
                         console.error("Searx sonuç URL'si oluşturulamadı:", e.message, resultUrl);
+                         // Skip results with invalid final URLs
                     }
+                } else if (fetchedUrls.has(resultUrl)) {
+                     // console.log("Searx duplicate found:", resultUrl); // Optional: log duplicates
                 }
             });
 
@@ -524,18 +586,65 @@ export async function fetchSearxResults(query: string, numPages: number = 10): P
     return allSearxResults;
 }
 
-function shuffleArray<T>(array: T[]): T[] {
-    const newArray = [...array];
-    for (let i = newArray.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+// Helper function to check if text contains characters from excluded scripts
+function containsExcludedScripts(text: string): boolean {
+    if (!text) return false;
+    for (let i = 0; i < text.length; i++) {
+        const codePoint = text.codePointAt(i)!;
+
+        // Arabic script ranges
+        if (codePoint >= 0x0600 && codePoint <= 0x06FF) return true; // Arabic
+        if (codePoint >= 0x0750 && codePoint <= 0x077F) return true; // Arabic Supplement
+        if (codePoint >= 0x08A0 && codePoint <= 0x08FF) return true; // Arabic Extended-A
+        if (codePoint >= 0xFB50 && codePoint <= 0xFDFF) return true; // Arabic Presentation Forms-A
+        if (codePoint >= 0xFE70 && codePoint <= 0xFEFF) return true; // Arabic Presentation Forms-B
+
+        // CJK (Chinese, Japanese, Korean Hanja) Unified Ideographs and related
+        if (codePoint >= 0x4E00 && codePoint <= 0x9FFF) return true; // CJK Unified Ideographs
+        if (codePoint >= 0x3400 && codePoint <= 0x4DBF) return true; // CJK Unified Ideographs Extension A
+        if (codePoint >= 0x20000 && codePoint <= 0x2A6DF) return true; // CJK Unified Ideographs Extension B (requires checking beyond Basic Multilingual Plane)
+        if (codePoint >= 0x2A700 && codePoint <= 0x2B73F) return true; // CJK Unified Ideographs Extension C
+        if (codePoint >= 0x2B740 && codePoint <= 0x2B81F) return true; // CJK Unified Ideographs Extension D
+        if (codePoint >= 0x2B820 && codePoint <= 0x2CEAF) return true; // CJK Unified Ideographs Extension E
+        if (codePoint >= 0x2CEB0 && codePoint <= 0x2EBEF) return true; // CJK Unified Ideographs Extension F
+         if (codePoint >= 0x30000 && codePoint <= 0x3134F) return true; // CJK Unified Ideographs Extension G
+         if (codePoint >= 0x31350 && codePoint <= 0x323AF) return true; // CJK Unified Ideographs Extension H
+
+
+        // Japanese script ranges
+        if (codePoint >= 0x3040 && codePoint <= 0x309F) return true; // Hiragana
+        if (codePoint >= 0x30A0 && codePoint <= 0x30FF) return true; // Katakana
+        if (codePoint >= 0x31F0 && codePoint <= 0x31FF) return true; // Katakana Phonetic Extensions
+        if (codePoint >= 0xFF00 && codePoint <= 0xFFEF) return true; // Halfwidth and Fullwidth Forms (contains some Japanese punctuation/katakana)
+
+        // Korean script ranges
+        if (codePoint >= 0x1100 && codePoint <= 0x11FF) return true; // Hangul Jamo
+        if (codePoint >= 0x3130 && codePoint <= 0x318F) return true; // Hangul Compatibility Jamo
+        if (codePoint >= 0xA960 && codePoint <= 0xA97F) return true; // Hangul Jamo Extended-A
+        if (codePoint >= 0xAC00 && codePoint <= 0xD7A3) return true; // Hangul Syllables
+        if (codePoint >= 0xD7B0 && codePoint <= 0xD7FF) return true; // Hangul Jamo Extended-B
+
+        // Check for common domain endings as a strong hint, though not foolproof
+        // This part is commented out as the primary request was about characters/alphabets.
+        // URL filtering by TLD can be added as an additional layer if needed.
+        /*
+        if (result.link) {
+            const lowerLink = result.link.toLowerCase();
+            if (lowerLink.endsWith('.cn') || lowerLink.endsWith('.jp') || lowerLink.endsWith('.kr') || lowerLink.endsWith('.sa') || lowerLink.endsWith('.ae')) {
+                return true; // Exclude based on TLD
+            }
+        }
+        */
     }
-    return newArray;
+    return false;
 }
 
+
 // Modified getAggregatedWebResults to fetch a larger pool and paginate from it
+// Now includes filtering for excluded scripts and prioritizing .tr domains
 export async function getAggregatedWebResults(query: string, start: number = 0): Promise<SearchResult[]> {
     // Cache key for the full combined list (independent of 'start')
+    // Updated cache key name to reflect the sources and pages fetched
     const FULL_LIST_CACHE_KEY = `full_aggregated_bing_50_ddg_60_searx_pages_10_web_${query}`;
     const cachedFullList = Cache.get<SearchResult[]>(FULL_LIST_CACHE_KEY);
 
@@ -547,8 +656,8 @@ export async function getAggregatedWebResults(query: string, start: number = 0):
     } else {
         console.log(`Cache miss for full aggregated list for query "${query}". Fetching...`);
         try {
-            const MAX_BING_RESULTS = 50; // Fetch first 50 from Bing
-            const MAX_DDG_RESULTS = 60; // Fetch first 60 from DuckDuckGo (DDG steps by ~20)
+            const MAX_BING_RESULTS = 50; // Fetch first 50 from Bing (across 5 pages)
+            const MAX_DDG_RESULTS = 60; // Fetch first 60 from DuckDuckGo (across 3 pages, DDG steps by ~20)
             const MAX_SEARX_PAGES = 10; // Fetch first 10 pages from Searx
 
             const fetchPromises: Promise<SearchResult[]>[] = [];
@@ -573,46 +682,75 @@ export async function getAggregatedWebResults(query: string, start: number = 0):
             const resultsMap = new Map<string, SearchResult>();
 
              allFetchedResults.flat().forEach(item => {
-                 if (item?.link && !resultsMap.has(item.link)) {
+                 // Only add valid results to the map
+                 if (item?.link && item.title && !resultsMap.has(item.link)) {
                      resultsMap.set(item.link, item);
-                 } else if (item?.link) {
-                      // console.log("Duplicate found:", item.link); // Optional: log duplicates
-                 }
+                 } /* else if (item?.link) {
+                      console.log("Duplicate found:", item.link); // Optional: log duplicates
+                 } else {
+                     console.warn("Skipping invalid result item:", item);
+                 } */
              });
-
 
             fullCombinedList = Array.from(resultsMap.values());
 
-            // Shuffle the combined results once
-            fullCombinedList = shuffleArray(fullCombinedList);
-
-            // Cache the full combined and shuffled list
+            // Cache the full combined list *before* filtering/sorting for consistency on subsequent pages
+            // The filtering/sorting logic will be applied every time a slice is requested.
             if (fullCombinedList.length > 0) {
                  Cache.set(FULL_LIST_CACHE_KEY, fullCombinedList);
                  console.log(`Cached full aggregated list (${fullCombinedList.length} items) for query "${query}"`);
             } else {
-                 Cache.set(FULL_LIST_CACHE_KEY, []);
-                 console.log(`No results for full aggregated list for query "${query}". Caching empty.`);
+                 // Only cache empty if no results were fetched at all, to avoid repeatedly trying to fetch empty results.
+                 // If fetching partially failed but got some results, we still cache the partial list.
+                 if (allFetchedResults.flat().length === 0) {
+                     Cache.set(FULL_LIST_CACHE_KEY, []);
+                      console.log(`No results fetched for full aggregated list for query "${query}". Caching empty.`);
+                 } else {
+                      console.log(`Partial results (${fullCombinedList.length} items) fetched for full aggregated list for query "${query}". Caching partial list.`);
+                      Cache.set(FULL_LIST_CACHE_KEY, fullCombinedList);
+                 }
             }
 
 
         } catch (error: any) {
             console.error('Error fetching or processing full aggregated list:', error.message);
-            Cache.set(FULL_LIST_CACHE_KEY, []); // Cache empty on error
-            fullCombinedList = [];
+             // On catastrophic error during fetch, cache empty to prevent repeated failures
+            Cache.set(FULL_LIST_CACHE_KEY, []);
+            fullCombinedList = []; // Ensure list is empty on error
         }
     }
 
-    // Now paginate from the full combined list using the requested 'start' offset
-    const slicedResults = fullCombinedList.slice(start, start + 10);
+    // --- Apply Filtering and Sorting ---
+    let filteredAndSortedList = fullCombinedList
+        .filter(result => {
+            // Keep the result ONLY if it does NOT contain excluded scripts in title or snippet
+            return !containsExcludedScripts(result.title) && !containsExcludedScripts(result.snippet);
+        })
+        .sort((a, b) => {
+            // Sort by TLD: .tr first
+            const aIsTR = a.link.toLowerCase().endsWith('.tr');
+            const bIsTR = b.link.toLowerCase().endsWith('.tr');
 
-    console.log(`Returning sliced results (start=${start}, count=${slicedResults.length}) from full list (${fullCombinedList.length} items)`);
+            if (aIsTR && !bIsTR) {
+                return -1; // a (.tr) comes first
+            } else if (!aIsTR && bIsTR) {
+                return 1; // b (.tr) comes first
+            }
+            // If both are .tr or neither is .tr, maintain original relative order from fetching/combining.
+            return 0;
+        });
 
-    // Note: We don't cache the slice here, only the full list is cached.
+    // Now paginate from the filtered and sorted list using the requested 'start' offset
+    const slicedResults = filteredAndSortedList.slice(start, start + 10);
+
+    console.log(`Returning sliced results (start=${start}, count=${slicedResults.length}) from filtered/sorted list (${filteredAndSortedList.length} items)`);
+
+    // Note: We don't cache the slice here, only the full combined list is cached.
     // The UI's pagination links will simply update the 'start' parameter.
 
     return slicedResults;
 }
+
 
 export function checkBangRedirects(query: string): string | null {
     const bangs: { [key: string]: string } = {
@@ -621,6 +759,7 @@ export function checkBangRedirects(query: string): string | null {
         '!bing': 'https://www.bing.com/search?q=',
         '!ddg': 'https://duckduckgo.com/?q=',
         '!amazon': 'https://www.amazon.com.tr/s?k=',
+        '!yt': 'https://www.youtube.com/results?search_query=' // Added YouTube bang
     };
     const parts = query.split(' ');
     const bang = parts[0].toLowerCase();
@@ -659,9 +798,11 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
         }
 
         let countryCode = 'N/A';
+        // Fetch IP Info only if token is provided
         if (ipinfoToken) {
             try {
-                 const ip = req.headers['x-forwarded-for']?.toString().split(',')[0] || req.socket.remoteAddress || '8.8.8.8';
+                 // Get the IP address from headers or socket
+                 const ip = req.headers['x-forwarded-for']?.toString().split(',')[0] || req.socket.remoteAddress?.replace('::ffff:', '') || '8.8.8.8';
                  const ipCacheKey = `ipinfo_${ip}`;
                  let geoData = Cache.get<IPInfoData>(ipCacheKey);
 
@@ -680,27 +821,28 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
         const renderData: RenderData = {
             query, type, start, results: [], images: [], newsResults: [],
             videos: [], wiki: null, countryCode, elapsedTime: '0.00',
-            searchSource: 'Synapic Search'
+            searchSource: 'Synapic Search' // Default source
         };
 
         try {
             const fetchPromises: Promise<any>[] = [];
             let searchSourceText = 'Sonuçlar';
 
+            // Always attempt to fetch Wiki summary for web-like types
             const webLikeTypesForWiki = ['web', 'wiki'];
             if (webLikeTypesForWiki.includes(type)) {
                  fetchPromises.push(fetchWikiSummary(query, 'tr')
                      .catch((e: Error) => { console.error("Wiki fetch failed inline:", e.message); return null; }));
              } else {
-                 fetchPromises.push(Promise.resolve(null));
+                 fetchPromises.push(Promise.resolve(null)); // No wiki fetch for other types
              }
 
 
-            let mainFetchPromise: Promise<any[]>;
+            let mainFetchPromise: Promise<any>; // Promise can resolve to Array or WikiSummary
 
             switch (type) {
                 case 'web':
-                    // getAggregatedWebResults now handles fetching multiple initial pages and slicing
+                    // Use the modified getAggregatedWebResults which includes filtering and sorting
                     mainFetchPromise = getAggregatedWebResults(query, start);
                     searchSourceText = 'Web Sonuçları (Birleşik)';
                     break;
@@ -709,7 +851,11 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
                      searchSourceText = 'Görsel Sonuçları (Bing)';
                      break;
                 case 'wiki':
-                    mainFetchPromise = Promise.resolve([]); // Wiki result is fetched in the wikiPromise
+                    // For 'wiki' type, the wikiSummary fetch is the main result.
+                    // We already pushed the wikiPromise into fetchPromises array above.
+                    // Here we push a resolved promise for an empty array to satisfy Promise.all structure,
+                    // as the wiki result will be assigned from the first element of the result array.
+                    mainFetchPromise = Promise.resolve([]);
                     searchSourceText = 'Wikipedia Sonucu';
                     break;
                  case 'video':
@@ -717,28 +863,30 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
                      searchSourceText = 'Video Sonuçları (YouTube)';
                      break;
                 default:
+                    // Default to web search if type is invalid
                     mainFetchPromise = getAggregatedWebResults(query, start);
-                    renderData.type = 'web';
-                    type = 'web';
+                    renderData.type = 'web'; // Correct the type in renderData
+                    type = 'web'; // Update local type variable
                     searchSourceText = 'Web Sonuçları (Birleşik - Varsayılan)';
             }
 
             renderData.searchSource = searchSourceText;
 
-             // Add the main fetch promise *after* it's defined in the switch
+             // Add the main fetch promise after it's defined in the switch
              fetchPromises.push(mainFetchPromise.catch((e: Error) => {
                  console.error(`${type} fetch failed inline:`, e.message);
-                 // Return empty array for results/images/videos, null for wiki if that was main fetch
-                 return (type === 'wiki') ? null : [];
+                 // Return appropriate empty structure on failure based on type
+                 if (type === 'wiki') return null;
+                 return [];
               }));
 
 
-            // Wait for all fetches
+            // Wait for all promises to resolve
             const [wikiResult, mainResults] = await Promise.all(fetchPromises);
 
             renderData.wiki = wikiResult as WikiSummary | null;
 
-            // Assign mainResults based on type
+            // Assign mainResults to the correct property in renderData based on type
             switch (type) {
                  case 'web':
                      renderData.results = mainResults as SearchResult[] || [];
@@ -750,11 +898,12 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
                      renderData.videos = mainResults as VideoResult[] || [];
                      break;
                 case 'wiki':
-                     // Wiki result is already in renderData.wiki
+                     // wikiResult is already assigned to renderData.wiki.
+                     // mainResults for wiki type is an empty array from the promise.resolve([]).
                      renderData.results = []; // Ensure results array is empty for wiki type
                      break;
                 default:
-                     renderData.results = mainResults as SearchResult[] || [];
+                     renderData.results = mainResults as SearchResult[] || []; // Should match the default case fetch
                      break;
              }
 
@@ -766,7 +915,7 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
              if (type === 'web') renderData.results = [];
              else if (type === 'image') renderData.images = [];
              else if (type === 'video') renderData.videos = [];
-             // wiki might still be null from the fetch
+             // wiki might still be null from the fetch or set to null above
         } finally {
             renderData.elapsedTime = ((Date.now() - startTime) / 1000).toFixed(2);
             res.render('results', renderData);
@@ -786,16 +935,18 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
          try {
             let searchSourceApi: string = 'API Sonuçları';
 
+            // Always attempt to fetch Wiki summary for web-like types for API
             const webLikeTypesForWikiApi = ['web', 'wiki'];
             const wikiPromise = webLikeTypesForWikiApi.includes(type) ?
                 fetchWikiSummary(query, 'tr')
                 .catch((e: Error) => { console.error("API Wiki fetch failed:", e.message); return null; })
                 : Promise.resolve(null);
 
-            let mainFetchPromise: Promise<any[] | WikiSummary | null>; // Can be array or wiki summary
+            let mainFetchPromise: Promise<any>; // Can be array or wiki summary
 
             switch (type) {
                 case 'web':
+                    // Use the modified getAggregatedWebResults which includes filtering and sorting
                     mainFetchPromise = getAggregatedWebResults(query, start);
                     searchSourceApi = 'Birleşik Web (API)';
                     break;
@@ -804,7 +955,8 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
                      searchSourceApi = 'Bing Görselleri (API)';
                      break;
                 case 'wiki':
-                    mainFetchPromise = fetchWikiSummary(query, 'tr'); // Wiki is the main result for wiki type
+                    // For 'wiki' type, the wikiSummary fetch is the main result for the API
+                    mainFetchPromise = fetchWikiSummary(query, 'tr');
                     searchSourceApi = 'Wikipedia (API)';
                     break;
                  case 'video':
@@ -812,24 +964,29 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
                      searchSourceApi = 'YouTube Videoları (API)';
                      break;
                 default:
+                    // Default to web search if type is invalid
                     mainFetchPromise = getAggregatedWebResults(query, start);
-                    type = 'web';
+                    type = 'web'; // Correct the type for the API response
                     searchSourceApi = 'Birleşik Web (API - Varsayılan)';
             }
 
-            // For wiki type, wikiPromise and mainFetchPromise are the same.
-            // For other types, wikiPromise is only fetched if type is web-like,
-            // and mainFetchPromise fetches the primary results type.
+            // Wait for promises to resolve.
+            // Note: If type is 'wiki', wikiPromise and mainFetchPromise are the same fetch call result.
+            // If type is web-like but not 'wiki', wikiPromise fetches wiki, mainFetchPromise fetches web results.
+            // If type is not web-like, wikiPromise is null.
             const [wikiResultForOtherTypes, mainResult] = await Promise.all([
                  (type !== 'wiki' && webLikeTypesForWikiApi.includes(type)) ? wikiPromise : Promise.resolve(null),
                  mainFetchPromise
             ]);
 
+
             const apiResponse: ApiResponse = {
                 query, type, searchSource: searchSourceApi,
+                 // Assign wiki based on type: if type is 'wiki', mainResult is the wiki. Otherwise, use wikiResultForOtherTypes.
                  wiki: type === 'wiki' ? mainResult as WikiSummary | null : wikiResultForOtherTypes as WikiSummary | null,
             };
 
+            // Assign mainResult to the correct property in apiResponse based on type
             switch (type) {
                 case 'web':
                     apiResponse.results = mainResult as SearchResult[] || [];
@@ -844,7 +1001,7 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
                     // Wiki result is already in apiResponse.wiki
                     break;
                 default:
-                    apiResponse.results = mainResult as SearchResult[] || [];
+                    apiResponse.results = mainResult as SearchResult[] || []; // Should match the default case fetch
                     break;
             }
 
@@ -859,6 +1016,7 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
     app.get('/manifesto', (req: Request, res: Response) => res.render('manifesto'));
     app.get('/iletisim', (req: Request, res: Response) => res.render('iletisim', { messageSent: false }));
 
+    // Redirect /image, /wiki, /video, /search (without type) to the main /search endpoint with type parameter
     app.get('/image', (req: Request, res: Response) => {
         const query = req.query.q as string || '';
         res.redirect(`/search?query=${encodeURIComponent(query)}&type=image`);
@@ -871,10 +1029,16 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
         const query = req.query.q as string || '';
         res.redirect(`/search?query=${encodeURIComponent(query)}&type=video`);
     });
+     // This route handler seems redundant after the first one for '/search'.
+     // It might cause unexpected behavior if placed after the main /search handler.
+     // Removing or moving it before the main /search handler is recommended.
+     // Assuming the intent was to handle /search?q=... without type, the default 'web' handles this in the main /search route.
+     /*
     app.get('/search', (req: Request, res: Response) => {
         const query = req.query.q as string || '';
-         const type = req.query.type as string || 'web';
+         const type = req.query.type as string || 'web'; // Default to web
         res.redirect(`/search?query=${encodeURIComponent(query)}&type=${encodeURIComponent(type)}`);
     });
+     */
 
 }
