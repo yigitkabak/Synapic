@@ -4,7 +4,6 @@ import validApiKeys from '../views/json/ApiKeys.json';
 import * as cheerio from 'cheerio';
 import { URLSearchParams } from 'url';
 
-// Kept Wikipedia summary as it's generally useful and can be displayed alongside DDG results
 interface WikipediaSummaryApiResponse {
     title: string;
     extract: string;
@@ -35,8 +34,6 @@ interface SearchResult {
     source: string;
 }
 
-// Removed interfaces for other search types (NewsResult, ImageResult, VideoResult, etc.)
-
 interface CacheItem<T> {
     data: T | null;
     expiry: number;
@@ -48,12 +45,12 @@ interface IPInfoData {
 
 interface RenderData {
     query: string;
-    type: string; // Will primarily be 'web' for DDG
+    type: string;
     start: number;
-    results: SearchResult[]; // Only for web results (DDG)
-    images: []; // Removed other types
-    newsResults: []; // Removed other types
-    videos: []; // Removed other types
+    results: SearchResult[];
+    images: [];
+    newsResults: [];
+    videos: [];
     wiki: WikiSummary | null;
     countryCode: string;
     elapsedTime: string;
@@ -63,17 +60,15 @@ interface RenderData {
 
 interface ApiResponse {
     query: string;
-    type: string; // Will primarily be 'web' for DDG
+    type: string;
     searchSource: string;
     wiki: WikiSummary | null;
-    results?: SearchResult[]; // Only for web results (DDG)
-    images?: []; // Removed other types
-    newsResults?: []; // Removed other types
-    videos?: []; // Removed other types
+    results?: SearchResult[];
+    images?: [];
+    newsResults?: [];
+    videos?: [];
     error?: string;
 }
-
-// Removed interfaces for ScraperAPI and shopping results
 
 const cacheStorage = new Map<string, CacheItem<any>>();
 const cacheExpiration = 15 * 60 * 1000;
@@ -103,8 +98,6 @@ export const Cache = {
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-// Removed API keys and base URLs for other services
-
 export async function fetchWikiSummary(query: string, lang: string = 'tr'): Promise<WikiSummary | null> {
     const cacheKey = `wiki_summary_${lang}_${query}`;
     const cachedData = Cache.get<WikiSummary>(cacheKey);
@@ -132,7 +125,6 @@ export async function fetchWikiSummary(query: string, lang: string = 'tr'): Prom
         return null;
     } catch (error: any) {
         if (isAxiosError(error) && error.response?.status === 404) {
-            // Article not found, expected behavior
         } else {
             console.error(`WikiSummary (${lang}) getirme hatası (${query}):`, error.message);
         }
@@ -141,12 +133,9 @@ export async function fetchWikiSummary(query: string, lang: string = 'tr'): Prom
     }
 }
 
-// Removed all other fetch functions (Bing Images, Gnews, YouTube, Google, Bing, Yandex, Ecosia, Twitter, Yahoo, Izlesene, Github, Scholar, BASE, Bing News, Google Shopping, Bing Shopping)
-
 export function checkBangRedirects(query: string): string | null {
     const bangs: { [key: string]: string } = {
         '!ddg': 'https://duckduckgo.com/?q=',
-        // Removed other bang redirects
     };
 
     const parts = query.split(' ');
@@ -161,21 +150,21 @@ export function checkBangRedirects(query: string): string | null {
 }
 
 export async function fetchDuckDuckGoResults(query: string, start: number = 0): Promise<SearchResult[]> {
-    const ddgStart = Math.floor(start / 10) * 20; // DuckDuckGo uses increments of 20 for 's' parameter
+    const ddgStart = Math.floor(start / 10) * 20;
     const cacheKey = `duckduckgo_web_${ddgStart}_${query}`;
     const cachedData = Cache.get<SearchResult[]>(cacheKey);
     if (cachedData) return cachedData;
 
     try {
-        const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}&s=${ddgStart}&kl=tr-tr&df=`; // Using html.duckduckgo.com for easier scraping
+        const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}&s=${ddgStart}&kl=tr-tr&df=`;
         const { data } = await axios.get<string>(url, {
             headers: {
                 'User-Agent': USER_AGENT,
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language': 'tr-TR,tr;q=0.8,en-US;q=0.5,en;q=0.3',
-                'Referer': 'https://duckduckgo.com/' // Often good practice to include a referer
+                'Referer': 'https://duckduckgo.com/'
             },
-            timeout: 10000 // Increased timeout for external scraping
+            timeout: 10000
         });
 
         const $ = cheerio.load(data);
@@ -193,7 +182,6 @@ export async function fetchDuckDuckGoResults(query: string, start: number = 0): 
             let displayUrl = displayUrlElement.text().trim().replace(/^https\?:\/\//, '').replace(/^http\?:\/\//, '');
 
             if (title && resultUrl) {
-                // Decode DuckDuckGo's redirect URL if present
                 if (resultUrl.startsWith('//duckduckgo.com/l/?uddg=')) {
                     try {
                         const params = new URLSearchParams(resultUrl.split('?')[1]);
@@ -204,14 +192,11 @@ export async function fetchDuckDuckGoResults(query: string, start: number = 0): 
                     }
                 }
 
-                // Ensure the URL is absolute
                 if (!resultUrl.startsWith('http://') && !resultUrl.startsWith('https://')) {
                     if (resultUrl.startsWith('//')) {
                         resultUrl = `https:${resultUrl}`;
                     } else {
-                        // Handle relative URLs if any, though less common in search results
-                        // console.warn("DuckDuckGo'dan göreceli URL:", resultUrl);
-                        return; // Skip if it's a strange relative URL
+                        return;
                     }
                 }
 
@@ -230,7 +215,6 @@ export async function fetchDuckDuckGoResults(query: string, start: number = 0): 
                     });
                 } catch (e: any) {
                     console.error("DuckDuckGo sonuç URL'si oluşturulamadı:", e.message, resultUrl);
-                    // Skip invalid URLs
                 }
             }
         });
@@ -241,12 +225,10 @@ export async function fetchDuckDuckGoResults(query: string, start: number = 0): 
         return results;
     } catch (error: any) {
         console.error('DuckDuckGo getirme hatası:', error.message);
-        Cache.set(cacheKey, []); // Cache empty result on error
+        Cache.set(cacheKey, []);
         return [];
     }
 }
-
-// Removed shuffleArray and getAggregatedWebResults functions
 
 export function checkApiKey(req: Request, res: Response, next: NextFunction): void {
     const apiKey = req.query.apikey as string | undefined;
@@ -261,7 +243,6 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
     app.get('/search', async (req: Request, res: Response) => {
         const startTime = Date.now();
         const query = (req.query.query as string || req.query.q as string || '').trim();
-        // Fixed type to always be 'web' as only DDG web search is available
         const type = 'web';
         const start = Math.max(0, parseInt(req.query.start as string) || 0);
 
@@ -277,7 +258,6 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
         }
 
         let countryCode = 'N/A';
-        // IP info fetching can be kept as it's independent of search source
         if (ipinfoToken) {
             try {
                  const ip = req.headers['x-forwarded-for']?.toString().split(',')[0] || req.socket.remoteAddress || '8.8.8.8';
@@ -293,7 +273,6 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
 
             } catch (error: any) {
                  console.error("IP Info fetch error:", error.message);
-                 // Continue even if IP info fails
             }
         }
 
@@ -301,17 +280,15 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
         const renderData: RenderData = {
             query, type, start, results: [], images: [], newsResults: [],
             videos: [], wiki: null, countryCode, elapsedTime: '0.00',
-            searchSource: 'DuckDuckGo Web Sonuçları' // Default source is DDG
+            searchSource: 'DuckDuckGo Web Sonuçları'
         };
 
         try {
             const fetchPromises: Promise<any>[] = [];
 
-            // Always fetch Wiki summary for web searches
             fetchPromises.push(fetchWikiSummary(query, 'tr')
                 .catch((e: Error) => { console.error("Wiki fetch failed inline:", e.message); return null; }));
 
-            // Only fetch DuckDuckGo web results
             fetchPromises.push(fetchDuckDuckGoResults(query, start)
                 .catch((e: Error) => { console.error("DuckDuckGo fetch failed inline:", e.message); return []; }));
 
@@ -325,7 +302,6 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
         } catch (error: any) {
             console.error("Error during search processing:", error.message);
             renderData.searchSource = `Sonuçlar alınırken hata oluştu`;
-            // Keep results array potentially empty
         } finally {
             renderData.elapsedTime = ((Date.now() - startTime) / 1000).toFixed(2);
             res.render('results', renderData);
@@ -334,7 +310,6 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
 
     app.get('/api/search', checkApiKey, async (req: Request, res: Response) => {
          const query = (req.query.query as string || req.query.q as string)?.trim();
-         // Fixed type to always be 'web' for API
          const type = 'web';
          const start = Math.max(0, parseInt(req.query.start as string) || 0);
 
@@ -346,11 +321,9 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
          try {
             const searchSourceApi: string = 'DuckDuckGo Web';
 
-            // Always fetch Wiki summary for API web searches
             const wikiPromise = fetchWikiSummary(query, 'tr')
                 .catch((e: Error) => { console.error("API Wiki fetch failed:", e.message); return null; });
 
-            // Only fetch DuckDuckGo web results for API
             const mainFetchPromise = fetchDuckDuckGoResults(query, start)
                 .catch((e: Error) => { console.error(`API DuckDuckGo fetch failed:`, e.message); return []; });
 
@@ -362,7 +335,7 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
 
             const apiResponse: ApiResponse = {
                 query, type, searchSource: searchSourceApi, wiki: wiki as WikiSummary | null,
-                results: mainResults as SearchResult[] // Only include results for web type
+                results: mainResults as SearchResult[]
             };
 
             res.json(apiResponse);
@@ -376,21 +349,18 @@ export function setupRoutes(app: Express, ipinfoToken: string | undefined): void
     app.get('/manifesto', (req: Request, res: Response) => res.render('manifesto'));
     app.get('/iletisim', (req: Request, res: Response) => res.render('iletisim', { messageSent: false }));
 
-    // Redirect other specific search routes to the main search with the correct type
     app.get('/google', (req: Request, res: Response) => {
         const query = req.query.q as string || '';
-        res.redirect(`/search?query=${encodeURIComponent(query)}&type=web`); // Redirect to web search
+        res.redirect(`/search?query=${encodeURIComponent(query)}&type=web`);
     });
 
     app.get('/bing', (req: Request, res: Response) => {
         const query = req.query.q as string || '';
-        res.redirect(`/search?query=${encodeURIComponent(query)}&type=web`); // Redirect to web search
+        res.redirect(`/search?query=${encodeURIComponent(query)}&type=web`);
     });
 
     app.get('/duckduckgo', (req: Request, res: Response) => {
         const query = req.query.q as string || '';
-        res.redirect(`/search?query=${encodeURIComponent(query)}&type=web`); // Keep this redirect but ensure it points to the general search handler
+        res.redirect(`/search?query=${encodeURIComponent(query)}&type=web`);
     });
-
-    // Removed other specific search routes (image, news, video, shopping, etc.)
 }
