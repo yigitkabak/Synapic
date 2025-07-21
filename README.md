@@ -29,7 +29,7 @@ Follow these steps to install and run the Synapic Search project on your local m
 First, clone the project's source code from the GitHub repository. Open your terminal and run:
 ```
 git clone https://github.com/yigitkabak/Synapic
-cd Synapic
+cd Synapic/backend
 ```
 
 ### 2. Automatic Creation of History File (backend/src/json/sites.json)
