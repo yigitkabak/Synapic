@@ -74,7 +74,7 @@ Synapic Search does not collect any personal information from users or send it t
 ```
 MIT License
 
-Copyright (c) 2023 Aperture Labs.
+Copyright (c) 2023 Yiğit KABAK.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -102,4 +102,4 @@ If you have any questions, feedback, or suggestions, please contact us at `yigit
 
 ---
 
-**Aperture Labs.**
+**Yiğit KABAK**
