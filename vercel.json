@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "backend/app.ts": {
-      "runtime": "deno@1.39.0" 
+      "runtime": "deno"
     }
   },
   "routes": [
