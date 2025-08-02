@@ -1,7 +1,7 @@
 {
   "functions": {
     "backend/app.ts": {
-      "runtime": "edge"
+      "runtime": "deno"
     }
   }
 }
