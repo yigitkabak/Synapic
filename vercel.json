@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "backend/app.ts": {
+      "runtime": "edge"
+    }
+  }
+}
