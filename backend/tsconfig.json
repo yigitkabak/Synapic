@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+      /* Modül Ayarları */
+      "target": "ES2022",                   /* (TS1501 Hatası Çözümü) Modern JavaScript özelliklerini destekler (örneğin: 's' regex flag). */
+      "module": "NodeNext",                 /* (TS1343 Hatası Çözümü) Node.js'in ES Module (import/export) sistemini ve import.meta.url kullanımını destekler. */
+      "moduleResolution": "NodeNext",       /* "module" NodeNext olduğunda zorunludur. */
+      "esModuleInterop": true,              /* CommonJS ve ESM modülleri arasındaki uyumluluğu artırır. */
+  
+      /* Derleme Ayarları */
+      "outDir": "./dist",                   /* Derlenmiş kodun yazılacağı dizin. */
+      "rootDir": "./",                      /* Kaynak dosyaların kök dizini. */
+  
+      /* Tip Kontrolü */
+      "strict": true,                       /* Tüm katı tip kontrolü ayarlarını etkinleştirir (önerilir). */
+      "skipLibCheck": true                  /* Tüm declaration dosyalarını (örn. node_modules içindekileri) kontrol etmeyi atlar. */
+    },
+    "include": ["**/*.ts"]
+  }
