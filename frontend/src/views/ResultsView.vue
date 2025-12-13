@@ -89,7 +89,7 @@
             <div class="image-results-container">
               <div class="image-grid">
                 <div 
-                  v-for="(img, index) in images.slice(0, 25)" 
+                  v-for="(img, index) in images" 
                   :key="index" 
                   class="image-card"
                   @click="openImageModal(img)"
@@ -345,13 +345,18 @@ const fetchResults = async (query, type) => {
       } else {
         wiki.value = {}; 
       }
+    } else if (type === 'image') {
+      if (data.images && Array.isArray(data.images)) {
+        images.value = data.images;
+      } else {
+        errorMessage.value = `API'den beklenen image dizisi gelmedi.`;
+      }
     } else {
       const payload = data.results || []; 
 
       if (Array.isArray(payload)) {
         if (type === 'web') results.value = payload;
         else if (type === 'news') newsResults.value = payload;
-        else if (type === 'image') images.value = payload;
         else if (type === 'video') videos.value = payload;
       } else {
         errorMessage.value = `API'den beklenen ${type} dizisi yerine başka bir veri tipi geldi.`;
@@ -782,34 +787,16 @@ onMounted(() => {
 
 .image-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.5rem;
   justify-items: center;
-}
-
-@media (min-width: 640px) {
-  .image-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (min-width: 768px) {
-  .image-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-@media (min-width: 1024px) {
-  .image-grid {
-    grid-template-columns: repeat(5, 1fr);
-  }
 }
 
 .image-card {
   background-color: #1a1a1a;
-  padding: 0.5rem;
+  padding: 0.25rem;
   border-radius: 0.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -822,8 +809,7 @@ onMounted(() => {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  border-radius: 0.5rem;
-  margin-bottom: 0.5rem;
+  border-radius: 0.375rem;
 }
 
 .image-wrapper img {
@@ -845,7 +831,7 @@ onMounted(() => {
   text-overflow: ellipsis;
   width: 100%;
   text-align: center;
-  padding: 0 0.25rem;
+  padding: 0.25rem 0.1rem 0 0.1rem;
 }
 
 .video-grid {
