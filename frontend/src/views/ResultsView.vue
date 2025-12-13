@@ -71,8 +71,12 @@
       <div class="results-wrapper">
         <div class="results-container">
           
-          <template v-if="currentType === 'web' && results.length > 0">
-            <div v-for="(result, index) in results" :key="index" class="result-card web-result">
+          <div v-if="isFetching && currentType === 'web'" class="loading-indicator">
+            <p>Aranıyor ve sonuçlar yükleniyor...</p>
+          </div>
+
+          <template v-else-if="currentType === 'web' && results.length > 0">
+            <div v-for="(result, index) in results" :key="index" class="result-card web-result loaded">
               <a :href="result.link" target="_blank" rel="noopener noreferrer" class="result-url-line">
                 <img :src="getFavicon(result.link)" class="favicon" alt="icon" @error="handleFaviconError">
                 {{ result.displayUrl }}
@@ -107,13 +111,14 @@
             <h2 class="section-title">Video Results</h2>
             <div class="video-grid">
               <div v-for="(video, index) in videos" :key="index" class="video-card">
-                <a :href="video.link" target="_blank" rel="noopener noreferrer" class="video-thumbnail-link">
+                <a :href="video.url" target="_blank" rel="noopener noreferrer" class="video-thumbnail-link">
                   <img :src="video.thumbnail" :alt="video.title">
                 </a>
                 <div class="video-info">
                   <h3 class="video-title">
-                    <a :href="video.link" target="_blank" rel="noopener noreferrer">{{ video.title }}</a>
+                    <a :href="video.url" target="_blank" rel="noopener noreferrer">{{ video.title }}</a>
                   </h3>
+                  <span class="video-source">{{ video.source }}</span>
                 </div>
               </div>
             </div>
@@ -130,7 +135,8 @@
                   </h3>
                   <p class="news-snippet">{{ news.snippet }}</p>
                   <div class="news-meta">
-                    <span>{{ news.displayUrl}}</span>
+                    <span>{{ news.source }}</span>
+                    <span v-if="news.displayUrl"> ({{ news.displayUrl }})</span>
                     <span v-if="news.date" class="news-date">| {{ formatDate(news.date) }}</span>
                   </div>
                 </div>
@@ -273,6 +279,7 @@ const searchHistory = ref([]);
 const errorMessage = ref('');
 const selectedImage = ref(null);
 const hasSearched = ref(false);
+const isFetching = ref(false); // Yeni yüklenme durumu
 
 const settings = ref({
   locationBased: false,
@@ -313,6 +320,7 @@ const fetchResults = async (query, type) => {
   errorMessage.value = '';
   hasSearched.value = true;
   
+  // Önceki sonuçları temizle
   results.value = [];
   images.value = [];
   videos.value = [];
@@ -322,6 +330,8 @@ const fetchResults = async (query, type) => {
   if (query.trim() === '') return;
 
   const url = `${API_BASE_URL}?query=${encodeURIComponent(query)}&type=${type}&lang=${settings.value.language}&apikey=${API_KEY}`;
+
+  isFetching.value = true; // Yüklenmeye başla
 
   try {
     const response = await fetch(url);
@@ -334,6 +344,7 @@ const fetchResults = async (query, type) => {
             errorData = { message: 'API sunucusu HTTP hatası verdi.' };
         }
         errorMessage.value = errorData.message || `API'den bir hata döndü. (Durum: ${response.status} ${response.statusText})`;
+        isFetching.value = false; // Hata durumunda yüklemeyi bitir
         return;
     }
 
@@ -345,27 +356,55 @@ const fetchResults = async (query, type) => {
       } else {
         wiki.value = {}; 
       }
+      isFetching.value = false;
     } else if (type === 'image') {
       if (data.images && Array.isArray(data.images)) {
         images.value = data.images;
       } else {
         errorMessage.value = `API'den beklenen image dizisi gelmedi.`;
       }
-    } else {
-      const payload = data.results || []; 
-
-      if (Array.isArray(payload)) {
-        if (type === 'web') results.value = payload;
-        else if (type === 'news') newsResults.value = payload;
-        else if (type === 'video') videos.value = payload;
+      isFetching.value = false;
+    } else if (type === 'video') { 
+      if (data.videos && Array.isArray(data.videos)) {
+        videos.value = data.videos;
       } else {
-        errorMessage.value = `API'den beklenen ${type} dizisi yerine başka bir veri tipi geldi.`;
+        errorMessage.value = `API'den beklenen video dizisi gelmedi.`;
+      }
+      isFetching.value = false;
+    } else if (type === 'news') {
+      if (data.newsResults && Array.isArray(data.newsResults)) {
+        newsResults.value = data.newsResults;
+      } else {
+        errorMessage.value = `API'den beklenen haber dizisi gelmedi.`;
+      }
+      isFetching.value = false;
+    } else { // 'web' için - Aşamalı yükleme burada uygulanıyor
+      const allResults = data.results || []; 
+
+      if (Array.isArray(allResults) && allResults.length > 0) {
+        // *** Aşamalı Yükleme Mantığı (Incremental Loading) ***
+        let index = 0;
+        const addResult = () => {
+          if (index < allResults.length) {
+            results.value.push(allResults[index]);
+            index++;
+            // Her sonuç arasında 50ms bekleme
+            setTimeout(addResult, 50); 
+          } else {
+            isFetching.value = false; // Tüm sonuçlar eklendi, yüklemeyi bitir
+          }
+        };
+        addResult();
+      } else {
+        errorMessage.value = `API'den beklenen ${type} dizisi yerine başka bir veri tipi geldi veya sonuç yok.`;
+        isFetching.value = false; // Sonuç yoksa yüklemeyi bitir
       }
     }
 
   } catch (error) {
     console.error('API Çekme Hatası:', error);
     errorMessage.value = 'Arama API sunucusuna bağlanılamadı. Lütfen vue.config.js dosyasını doğru yapılandırdığınızdan ve sunucunuzu yeniden başlattığınızdan emin olun.';
+    isFetching.value = false; // Hata durumunda yüklemeyi bitir
   }
 };
 
@@ -714,6 +753,14 @@ onMounted(() => {
   gap: 1.5rem;
 }
 
+/* Yüklenme Göstergesi Stili */
+.loading-indicator {
+  text-align: center;
+  padding: 2rem;
+  color: #007AFF;
+}
+
+
 .section-title {
   font-size: 1.25rem;
   font-weight: bold;
@@ -727,6 +774,17 @@ onMounted(() => {
   padding: 1rem;
   border-radius: 0.5rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  
+  /* Aşamalı yükleme için temel stil */
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+.result-card.loaded {
+  /* Vue tarafından diziye eklendiğinde bu stil uygulanacak */
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .result-link {
