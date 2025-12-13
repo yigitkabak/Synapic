@@ -71,11 +71,71 @@
       <div class="results-wrapper">
         <div class="results-container">
           
-          <div v-if="isFetching && currentType === 'web'" class="loading-indicator">
-            <p>Aranıyor ve sonuçlar yükleniyor...</p>
+          <div v-if="showCalculator" class="calculator-widget result-card">
+            <h2 class="widget-title"><i class="fas fa-calculator"></i> Hesap Makinesi</h2>
+            <div class="calculator-display">{{ calculatorDisplay }}</div>
+            <div class="calculator-grid">
+              <button @click="appendChar('(')" class="btn-op">(</button>
+              <button @click="appendChar(')')" class="btn-op">)</button>
+              <button @click="clearDisplay" class="btn-clear">C</button>
+              <button @click="calculateResult" class="btn-equal">=</button>
+              
+              <button @click="appendChar('7')">7</button>
+              <button @click="appendChar('8')">8</button>
+              <button @click="appendChar('9')">9</button>
+              <button @click="appendChar('/')" class="btn-op">/</button>
+              
+              <button @click="appendChar('4')">4</button>
+              <button @click="appendChar('5')">5</button>
+              <button @click="appendChar('6')">6</button>
+              <button @click="appendChar('*')" class="btn-op">x</button>
+              
+              <button @click="appendChar('1')">1</button>
+              <button @click="appendChar('2')">2</button>
+              <button @click="appendChar('3')">3</button>
+              <button @click="appendChar('-')" class="btn-op">-</button>
+              
+              <button @click="appendChar('0')">0</button>
+              <button @click="appendChar('.')">.</button>
+              <button @click="backspace" class="btn-op"><i class="fas fa-backspace"></i></button>
+              <button @click="appendChar('+')" class="btn-op">+</button>
+            </div>
+          </div>
+          
+          <div v-if="showWeatherWidget && weatherData" class="weather-widget result-card">
+            <h2 class="widget-title">
+              <i class="fas fa-cloud-sun"></i> 
+              Hava Durumu - {{ weatherData.city }}
+            </h2>
+            <div class="weather-content">
+              <div class="weather-main-info">
+                <img :src="weatherData.iconUrl" :alt="weatherData.condition" class="weather-icon">
+                <div class="temp-display">
+                  {{ weatherData.tempC }}°C
+                </div>
+              </div>
+              <div class="weather-details">
+                <p class="condition-text">{{ weatherData.condition }}</p>
+                <div class="detail-row">
+                  <i class="fas fa-thermometer-half"></i> 
+                  <span>Hissedilen:</span> 
+                  <strong>{{ weatherData.feelsLikeC }}°C</strong>
+                </div>
+                <div class="detail-row">
+                  <i class="fas fa-wind"></i> 
+                  <span>Rüzgar:</span> 
+                  <strong>{{ weatherData.windKph }} km/s</strong>
+                </div>
+                <div class="detail-row">
+                  <i class="fas fa-tint"></i> 
+                  <span>Nem:</span> 
+                  <strong>%{{ weatherData.humidity }}</strong>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <template v-else-if="currentType === 'web' && results.length > 0">
+          <template v-if="currentType === 'web' && results.length > 0">
             <div v-for="(result, index) in results" :key="index" class="result-card web-result loaded">
               <a :href="result.link" target="_blank" rel="noopener noreferrer" class="result-url-line">
                 <img :src="getFavicon(result.link)" class="favicon" alt="icon" @error="handleFaviconError">
@@ -264,7 +324,7 @@
         </nav>
       </div>
     </div>
-  </div>
+    </div>
 </template>
 
 <script setup>
@@ -279,7 +339,6 @@ const searchHistory = ref([]);
 const errorMessage = ref('');
 const selectedImage = ref(null);
 const hasSearched = ref(false);
-const isFetching = ref(false); // Yeni yüklenme durumu
 
 const settings = ref({
   locationBased: false,
@@ -294,6 +353,14 @@ const wiki = ref({});
 
 const API_BASE_URL = '/api/search'; 
 const API_KEY = 'synapic'; 
+
+const showCalculator = ref(false);
+const calculatorDisplay = ref('0');
+let currentCalculation = '';
+
+const showWeatherWidget = ref(false);
+const weatherData = ref(null);
+
 
 const getFavicon = (url) => {
   try {
@@ -316,11 +383,116 @@ const formatDate = (dateString) => {
   }
 };
 
+const appendChar = (char) => {
+  if (calculatorDisplay.value === 'Error' || calculatorDisplay.value === 'NaN') {
+    calculatorDisplay.value = '0';
+    currentCalculation = '';
+  }
+  
+  if (calculatorDisplay.value === '0' && (char >= '0' && char <= '9')) {
+    calculatorDisplay.value = char;
+  } else {
+    calculatorDisplay.value += char;
+  }
+  currentCalculation += char;
+};
+
+const clearDisplay = () => {
+  calculatorDisplay.value = '0';
+  currentCalculation = '';
+};
+
+const backspace = () => {
+  if (calculatorDisplay.value.length > 1) {
+    calculatorDisplay.value = calculatorDisplay.value.slice(0, -1);
+    currentCalculation = currentCalculation.slice(0, -1);
+  } else {
+    clearDisplay();
+  }
+};
+
+const calculateResult = () => {
+  try {
+    let expression = currentCalculation.replace(/x/g, '*');
+    
+    const result = new Function('return ' + expression)();
+    calculatorDisplay.value = result.toString();
+    currentCalculation = result.toString();
+  } catch (error) {
+    calculatorDisplay.value = 'Error';
+    currentCalculation = '';
+  }
+};
+
+
+const fetchWeather = async (locationQuery) => {
+  weatherData.value = null;
+  
+  const mockWeatherData = {
+    istanbul: {
+      city: 'İstanbul',
+      tempC: 18,
+      condition: 'Parçalı Bulutlu',
+      iconUrl: 'https://cdn.weatherapi.com/v1/current/64x64/day/116.png',
+      feelsLikeC: 17,
+      windKph: 12,
+      humidity: 75
+    },
+    ankara: {
+      city: 'Ankara',
+      tempC: 12,
+      condition: 'Güneşli',
+      iconUrl: 'https://cdn.weatherapi.com/v1/current/64x64/day/113.png',
+      feelsLikeC: 10,
+      windKph: 8,
+      humidity: 60
+    },
+    default: {
+      city: locationQuery,
+      tempC: 22,
+      condition: 'Bilinmeyen Konum',
+      iconUrl: 'https://cdn.weatherapi.com/v1/current/64x64/day/122.png',
+      feelsLikeC: 21,
+      windKph: 15,
+      humidity: 65
+    }
+  };
+
+  if (locationQuery.toLowerCase().includes('istanbul')) {
+    weatherData.value = mockWeatherData.istanbul;
+  } else if (locationQuery.toLowerCase().includes('ankara')) {
+    weatherData.value = mockWeatherData.ankara;
+  } else {
+    weatherData.value = { ...mockWeatherData.default, city: locationQuery.charAt(0).toUpperCase() + locationQuery.slice(1) };
+  }
+};
+
+const checkForSpecialQuery = (query) => {
+  const normalizedQuery = query.toLowerCase().trim();
+  
+  const calculatorKeywords = ['calculator', 'hesap makinesi', 'rechner', 'calculate', 'hesapla'];
+  const weatherKeywords = ['weather', 'hava durumu', 'wetter', 'forecast', 'tahmin', 'sıcaklık'];
+  
+  showCalculator.value = calculatorKeywords.some(keyword => normalizedQuery.includes(keyword));
+
+  const shouldShowWeather = weatherKeywords.some(keyword => normalizedQuery.includes(keyword));
+  showWeatherWidget.value = shouldShowWeather;
+  
+  if (shouldShowWeather) {
+    const locationQuery = normalizedQuery.replace(new RegExp(weatherKeywords.join('|'), 'gi'), '').trim() || 'istanbul';
+    fetchWeather(locationQuery);
+  } else {
+    weatherData.value = null;
+  }
+  
+  return showCalculator.value || showWeatherWidget.value; 
+};
+
+
 const fetchResults = async (query, type) => {
   errorMessage.value = '';
   hasSearched.value = true;
   
-  // Önceki sonuçları temizle
   results.value = [];
   images.value = [];
   videos.value = [];
@@ -330,8 +502,6 @@ const fetchResults = async (query, type) => {
   if (query.trim() === '') return;
 
   const url = `${API_BASE_URL}?query=${encodeURIComponent(query)}&type=${type}&lang=${settings.value.language}&apikey=${API_KEY}`;
-
-  isFetching.value = true; // Yüklenmeye başla
 
   try {
     const response = await fetch(url);
@@ -344,67 +514,49 @@ const fetchResults = async (query, type) => {
             errorData = { message: 'API sunucusu HTTP hatası verdi.' };
         }
         errorMessage.value = errorData.message || `API'den bir hata döndü. (Durum: ${response.status} ${response.statusText})`;
-        isFetching.value = false; // Hata durumunda yüklemeyi bitir
         return;
     }
 
     const data = await response.json();
-
+    
     if (type === 'wiki') {
       if (data.wiki && typeof data.wiki === 'object' && data.wiki !== null && data.wiki.title) {
         wiki.value = data.wiki;
       } else {
         wiki.value = {}; 
       }
-      isFetching.value = false;
     } else if (type === 'image') {
       if (data.images && Array.isArray(data.images)) {
         images.value = data.images;
       } else {
         errorMessage.value = `API'den beklenen image dizisi gelmedi.`;
       }
-      isFetching.value = false;
-    } else if (type === 'video') { 
-      if (data.videos && Array.isArray(data.videos)) {
-        videos.value = data.videos;
-      } else {
-        errorMessage.value = `API'den beklenen video dizisi gelmedi.`;
-      }
-      isFetching.value = false;
-    } else if (type === 'news') {
-      if (data.newsResults && Array.isArray(data.newsResults)) {
-        newsResults.value = data.newsResults;
-      } else {
-        errorMessage.value = `API'den beklenen haber dizisi gelmedi.`;
-      }
-      isFetching.value = false;
-    } else { // 'web' için - Aşamalı yükleme burada uygulanıyor
-      const allResults = data.results || []; 
+    } else {
+      const payload = data.results || []; 
 
-      if (Array.isArray(allResults) && allResults.length > 0) {
-        // *** Aşamalı Yükleme Mantığı (Incremental Loading) ***
-        let index = 0;
-        const addResult = () => {
-          if (index < allResults.length) {
-            results.value.push(allResults[index]);
-            index++;
-            // Her sonuç arasında 50ms bekleme
-            setTimeout(addResult, 50); 
-          } else {
-            isFetching.value = false; // Tüm sonuçlar eklendi, yüklemeyi bitir
-          }
-        };
-        addResult();
+      if (Array.isArray(payload)) {
+        if (type === 'web') {
+           let index = 0;
+           const allResults = payload;
+           const addResult = () => {
+             if (index < allResults.length) {
+               results.value.push(allResults[index]);
+               index++;
+               setTimeout(addResult, 50); 
+             }
+           };
+           addResult();
+        }
+        else if (type === 'news') newsResults.value = payload;
+        else if (type === 'video') videos.value = payload;
       } else {
-        errorMessage.value = `API'den beklenen ${type} dizisi yerine başka bir veri tipi geldi veya sonuç yok.`;
-        isFetching.value = false; // Sonuç yoksa yüklemeyi bitir
+        errorMessage.value = `API'den beklenen ${type} dizisi yerine başka bir veri tipi geldi.`;
       }
     }
 
   } catch (error) {
     console.error('API Çekme Hatası:', error);
     errorMessage.value = 'Arama API sunucusuna bağlanılamadı. Lütfen vue.config.js dosyasını doğru yapılandırdığınızdan ve sunucunuzu yeniden başlattığınızdan emin olun.';
-    isFetching.value = false; // Hata durumunda yüklemeyi bitir
   }
 };
 
@@ -412,12 +564,17 @@ const handleSearch = () => {
   const query = searchQuery.value.trim();
   if (query !== '') {
     saveSearchQuery(query);
+    
+    checkForSpecialQuery(query);
+
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set('query', query);
     urlParams.set('type', currentType.value); 
     history.pushState(null, '', `?${urlParams.toString()}`);
 
     fetchResults(query, currentType.value); 
+    
+    hasSearched.value = true;
   }
 };
 
@@ -515,7 +672,12 @@ onMounted(() => {
   if (urlQuery) {
     searchQuery.value = urlQuery;
     currentType.value = urlType || 'web'; 
+    
+    checkForSpecialQuery(urlQuery);
+    
     fetchResults(searchQuery.value, currentType.value);
+    
+    hasSearched.value = true;
   }
 });
 </script>
@@ -753,14 +915,6 @@ onMounted(() => {
   gap: 1.5rem;
 }
 
-/* Yüklenme Göstergesi Stili */
-.loading-indicator {
-  text-align: center;
-  padding: 2rem;
-  color: #007AFF;
-}
-
-
 .section-title {
   font-size: 1.25rem;
   font-weight: bold;
@@ -775,16 +929,9 @@ onMounted(() => {
   border-radius: 0.5rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   
-  /* Aşamalı yükleme için temel stil */
-  opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
-}
-
-.result-card.loaded {
-  /* Vue tarafından diziye eklendiğinde bu stil uygulanacak */
   opacity: 1;
   transform: translateY(0);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
 }
 
 .result-link {
@@ -1401,5 +1548,156 @@ body.right-panel-active .main-header {
 
 .main-content, .main-header {
   transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.weather-widget {
+  max-width: 400px;
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  padding: 1.5rem;
+  margin: 1.5rem auto 1.5rem;
+}
+
+.widget-title {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #007aff;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.widget-title i {
+  margin-right: 0.75rem;
+  font-size: 1.5rem;
+}
+
+.weather-content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.weather-main-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.weather-icon {
+  width: 64px;
+  height: 64px;
+}
+
+.temp-display {
+  font-size: 3rem;
+  font-weight: 700;
+  color: white;
+  margin-top: -0.5rem;
+}
+
+.weather-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.condition-text {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: #e0e0e0;
+  margin-bottom: 0.5rem;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  font-size: 0.875rem;
+  color: #b0b0b0;
+}
+
+.detail-row i {
+  margin-right: 0.5rem;
+  width: 1rem;
+  text-align: center;
+  color: #007aff;
+}
+
+.detail-row strong {
+  margin-left: auto;
+  color: white;
+}
+
+.calculator-widget {
+  max-width: 320px;
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  padding: 1.5rem;
+  margin: 1.5rem auto 1.5rem;
+}
+
+.calculator-display {
+  background-color: #0d0d0d;
+  color: white;
+  font-size: 2.5rem;
+  text-align: right;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.calculator-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.calculator-grid button {
+  background-color: #2c2c2e;
+  color: white;
+  border: none;
+  padding: 1rem;
+  font-size: 1.25rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+}
+
+.calculator-grid button:hover {
+  background-color: #3a3a3a;
+}
+
+.btn-op {
+  background-color: #ff9500;
+  color: white;
+}
+
+.btn-op:hover {
+  background-color: #e08500;
+}
+
+.btn-clear {
+  background-color: #5a5a5f;
+  color: white;
+}
+
+.btn-clear:hover {
+  background-color: #6d6d74;
+}
+
+.btn-equal {
+  background-color: #007aff;
+  color: white;
+}
+
+.btn-equal:hover {
+  background-color: #005bb5;
 }
 </style>
