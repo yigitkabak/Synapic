@@ -1,7 +1,8 @@
 import express, { Request, Response, NextFunction } from "express";
 import { fetchBingImages, fetchNewsResults, fetchYoutubeResults, getAggregatedWebResults, fetchWikiSummary, WikiSummary, SearchResult, ImageResult, VideoResult } from "./src/search";
-// keys.json dosyasını import ederken Node.js'te genellikle 'with { type: "json" }' ifadesi kullanılmaz.
+import { fetchOpenRouterResponse } from "./src/ai";
 import validApiKeys from "./src/json/keys.json";
+import cors from "cors";
 
 interface ApiResponse {
     query: string;
@@ -13,22 +14,44 @@ interface ApiResponse {
     videos?: VideoResult[];
     newsResults?: SearchResult[];
     error?: string;
+    aiResponse?: string;
 }
 
 const app = express();
 const PORT = 3000;
 
+app.use(cors());
 app.use(express.json());
 
 const checkApiKey = (req: Request, res: Response, next: NextFunction) => {
     const apiKey = req.query.apikey as string;
-    // validApiKeys listesini kontrol et
     if (!apiKey || !validApiKeys.includes(apiKey)) {
         res.status(403).json({ error: "Invalid or missing API key" });
         return;
     }
     next();
 };
+
+app.get("/api/ai", checkApiKey, async (req: Request, res: Response) => {
+    const query = (req.query.query as string || req.query.q as string)?.trim();
+
+    if (!query) {
+        res.status(400).json({ error: "Query missing!" });
+        return;
+    }
+
+    try {
+        const aiResult = await fetchOpenRouterResponse(query);
+        res.json({
+            query: query,
+            type: "ai",
+            searchSource: "Synapics AI",
+            response: aiResult
+        });
+    } catch (error) {
+        res.status(500).json({ error: "AI service error" });
+    }
+});
 
 app.get("/api/search", checkApiKey, async (req: Request, res: Response) => {
     const query = (req.query.query as string || req.query.q as string)?.trim();
@@ -44,7 +67,6 @@ app.get("/api/search", checkApiKey, async (req: Request, res: Response) => {
     try {
         let searchSourceApi: string = "API Results";
 
-        // Wiki araması sadece 'wiki' tipinde yapılmıyorsa bile (diğer tipler için özet almak amacıyla)
         const wikiPromise = (type === 'wiki') ?
             fetchWikiSummary(query, lang)
             .catch((e: Error) => { return null; })
