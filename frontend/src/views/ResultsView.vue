@@ -85,8 +85,14 @@
               <div class="skeleton-line width-70"></div>
             </div>
 
-            <div v-else class="ai-content-body">
-              <div class="ai-text markdown-body" v-html="renderMarkdown(aiResponseText)"></div>
+            <div v-else class="ai-content-body" :class="{ 'is-collapsed': !isAiExpanded && aiResponseText.length > 350 }">
+              <div class="ai-text markdown-body" v-html="renderMarkdown(displayedAiText)"></div>
+              <div v-if="aiResponseText.length > 350 && !isAiExpanded" class="read-more-overlay">
+                <button @click="isAiExpanded = true" class="read-more-btn">
+                  <span>Read More</span>
+                  <i class="fas fa-chevron-down"></i>
+                </button>
+              </div>
             </div>
           </div>
           
@@ -237,12 +243,6 @@
             </div>
           </template>
 
-          <template v-else-if="!errorMessage && searchQuery && hasSearched && (results.length === 0 && images.length === 0 && videos.length === 0 && newsResults.length === 0 && !wiki.title)">
-            <div class="no-results">
-              
-            </div>
-          </template>
-
         </div>
       </div>
     </main>
@@ -343,11 +343,11 @@
         </nav>
       </div>
     </div>
-    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'; 
+import { ref, onMounted, computed } from 'vue'; 
 import markdownit from 'markdown-it';
 
 const md = markdownit({
@@ -369,6 +369,7 @@ const searchHistory = ref([]);
 const errorMessage = ref('');
 const selectedImage = ref(null);
 const hasSearched = ref(false);
+const isAiExpanded = ref(false);
 
 const settings = ref({
   locationBased: false,
@@ -393,6 +394,13 @@ let currentCalculation = '';
 
 const showWeatherWidget = ref(false);
 const weatherData = ref(null);
+
+const displayedAiText = computed(() => {
+  if (isAiExpanded.value || aiResponseText.value.length <= 350) {
+    return aiResponseText.value;
+  }
+  return aiResponseText.value.substring(0, 350);
+});
 
 const getFavicon = (url) => {
   try {
@@ -446,7 +454,6 @@ const backspace = () => {
 const calculateResult = () => {
   try {
     let expression = currentCalculation.replace(/x/g, '*');
-    
     const result = new Function('return ' + expression)();
     calculatorDisplay.value = result.toString();
     currentCalculation = result.toString();
@@ -456,88 +463,41 @@ const calculateResult = () => {
   }
 };
 
-
 const fetchWeather = async (locationQuery) => {
   weatherData.value = null;
-  
   const mockWeatherData = {
-    istanbul: {
-      city: 'İstanbul',
-      tempC: 18,
-      condition: 'Parçalı Bulutlu',
-      iconUrl: 'https://cdn.weatherapi.com/v1/current/64x64/day/116.png',
-      feelsLikeC: 17,
-      windKph: 12,
-      humidity: 75
-    },
-    ankara: {
-      city: 'Ankara',
-      tempC: 12,
-      condition: 'Güneşli',
-      iconUrl: 'https://cdn.weatherapi.com/v1/current/64x64/day/113.png',
-      feelsLikeC: 10,
-      windKph: 8,
-      humidity: 60
-    },
-    default: {
-      city: locationQuery,
-      tempC: 22,
-      condition: 'Bilinmeyen Konum',
-      iconUrl: 'https://cdn.weatherapi.com/v1/current/64x64/day/122.png',
-      feelsLikeC: 21,
-      windKph: 15,
-      humidity: 65
-    }
+    istanbul: { city: 'İstanbul', tempC: 18, condition: 'Parçalı Bulutlu', iconUrl: 'https://cdn.weatherapi.com/v1/current/64x64/day/116.png', feelsLikeC: 17, windKph: 12, humidity: 75 },
+    ankara: { city: 'Ankara', tempC: 12, condition: 'Güneşli', iconUrl: 'https://cdn.weatherapi.com/v1/current/64x64/day/113.png', feelsLikeC: 10, windKph: 8, humidity: 60 },
+    default: { city: locationQuery, tempC: 22, condition: 'Bilinmeyen Konum', iconUrl: 'https://cdn.weatherapi.com/v1/current/64x64/day/122.png', feelsLikeC: 21, windKph: 15, humidity: 65 }
   };
-
-  if (locationQuery.toLowerCase().includes('istanbul')) {
-    weatherData.value = mockWeatherData.istanbul;
-  } else if (locationQuery.toLowerCase().includes('ankara')) {
-    weatherData.value = mockWeatherData.ankara;
-  } else {
-    weatherData.value = { ...mockWeatherData.default, city: locationQuery.charAt(0).toUpperCase() + locationQuery.slice(1) };
-  }
+  if (locationQuery.toLowerCase().includes('istanbul')) weatherData.value = mockWeatherData.istanbul;
+  else if (locationQuery.toLowerCase().includes('ankara')) weatherData.value = mockWeatherData.ankara;
+  else weatherData.value = { ...mockWeatherData.default, city: locationQuery.charAt(0).toUpperCase() + locationQuery.slice(1) };
 };
 
 const checkForSpecialQuery = (query) => {
   const normalizedQuery = query.toLowerCase().trim();
-  
   const calculatorKeywords = ['calculator', 'hesap makinesi', 'rechner', 'calculate', 'hesapla'];
   const weatherKeywords = ['weather', 'hava durumu', 'wetter', 'forecast', 'tahmin', 'sıcaklık'];
-  
   showCalculator.value = calculatorKeywords.some(keyword => normalizedQuery.includes(keyword));
-
   const shouldShowWeather = weatherKeywords.some(keyword => normalizedQuery.includes(keyword));
   showWeatherWidget.value = shouldShowWeather;
-  
   if (shouldShowWeather) {
     const locationQuery = normalizedQuery.replace(new RegExp(weatherKeywords.join('|'), 'gi'), '').trim() || 'istanbul';
     fetchWeather(locationQuery);
-  } else {
-    weatherData.value = null;
   }
-  
   return showCalculator.value || showWeatherWidget.value; 
 };
 
 const fetchAiResponse = async (query) => {
   aiLoading.value = true;
   aiResponseText.value = ''; 
-  
+  isAiExpanded.value = false;
   try {
     const response = await fetch(`http://localhost:3000/api/ai?query=${encodeURIComponent(query)}&apikey=synapic`);
-    
     if (response.ok) {
       const data = await response.json();
-      console.log('AI Response Data:', data);
-      
-      if (data && data.response) {
-        aiResponseText.value = data.response;
-      } else {
-        console.warn('AI response data format invalid:', data);
-      }
-    } else {
-        console.error('AI fetch failed with status:', response.status);
+      if (data && data.response) aiResponseText.value = data.response;
     }
   } catch (error) {
     console.error('AI fetch error', error);
@@ -549,71 +509,44 @@ const fetchAiResponse = async (query) => {
 const fetchResults = async (query, type) => {
   errorMessage.value = '';
   hasSearched.value = true;
-  
   results.value = [];
   images.value = [];
   videos.value = [];
   newsResults.value = [];
   wiki.value = {};
-
   if (query.trim() === '') return;
-
   const url = `${API_BASE_URL}?query=${encodeURIComponent(query)}&type=${type}&lang=${settings.value.language}&apikey=${API_KEY}`;
-
   try {
     const response = await fetch(url);
-    
     if (!response.ok) {
         let errorData;
-        try {
-            errorData = await response.json();
-        } catch {
-            errorData = { message: 'API sunucusu HTTP hatası verdi.' };
-        }
-        errorMessage.value = errorData.message || `API'den bir hata döndü. (Durum: ${response.status} ${response.statusText})`;
+        try { errorData = await response.json(); } catch { errorData = { message: 'API error' }; }
+        errorMessage.value = errorData.message || 'Error';
         return;
     }
-
     const data = await response.json();
-    
-    if (type === 'wiki') {
-      if (data.wiki && typeof data.wiki === 'object' && data.wiki !== null && data.wiki.title) {
-        wiki.value = data.wiki;
-      } else {
-        wiki.value = {}; 
-      }
-    } else if (type === 'image') {
-      if (data.images && Array.isArray(data.images)) {
-        images.value = data.images;
-      } else {
-        errorMessage.value = `API'den beklenen image dizisi gelmedi.`;
-      }
-    } else {
-      const payload = data.results || []; 
-
+    if (type === 'wiki') wiki.value = data.wiki || {};
+    else if (type === 'image') images.value = data.images || [];
+    else {
+      const payload = data.results || [];
       if (Array.isArray(payload)) {
         if (type === 'web') {
            let index = 0;
-           const allResults = payload;
            const addResult = () => {
-             if (index < allResults.length) {
-               results.value.push(allResults[index]);
+             if (index < payload.length) {
+               results.value.push(payload[index]);
                index++;
-               setTimeout(addResult, 50); 
+               setTimeout(addResult, 50);
              }
            };
            addResult();
         }
         else if (type === 'news') newsResults.value = payload;
         else if (type === 'video') videos.value = payload;
-      } else {
-        errorMessage.value = `API'den beklenen ${type} dizisi yerine başka bir veri tipi geldi.`;
       }
     }
-
   } catch (error) {
-    console.error('API Çekme Hatası:', error);
-    errorMessage.value = 'Arama API sunucusuna bağlanılamadı. Lütfen vue.config.js dosyasını doğru yapılandırdığınızdan ve sunucunuzu yeniden başlattığınızdan emin olun.';
+    errorMessage.value = 'Connection error';
   }
 };
 
@@ -621,17 +554,13 @@ const handleSearch = () => {
   const query = searchQuery.value.trim();
   if (query !== '') {
     saveSearchQuery(query);
-    
     checkForSpecialQuery(query);
     fetchAiResponse(query);
-
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set('query', query);
     urlParams.set('type', currentType.value); 
     history.pushState(null, '', `?${urlParams.toString()}`);
-
     fetchResults(query, currentType.value); 
-    
     hasSearched.value = true;
   }
 };
@@ -656,9 +585,8 @@ const quickNavigate = (type) => {
 
 const switchTab = (type) => {
   currentType.value = type;
-  if (searchQuery.value.trim() !== '') {
-    handleSearch(); 
-  } else {
+  if (searchQuery.value.trim() !== '') handleSearch();
+  else {
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set('type', type); 
     history.replaceState(null, '', `?${urlParams.toString()}`);
@@ -679,21 +607,13 @@ const selectHistoryItem = (item) => {
   handleSearch();
 };
 
-const clearSearch = () => {
-  searchQuery.value = '';
-};
+const clearSearch = () => { searchQuery.value = ''; };
 
-const handleBlur = () => {
-  setTimeout(() => {
-    showHistory.value = false;
-  }, 200);
-};
+const handleBlur = () => { setTimeout(() => { showHistory.value = false; }, 200); };
 
 const openOverlay = (name) => {
   activeOverlay.value = name;
-  if (name === 'controlCenter' || name === 'searchOptions') {
-    document.body.classList.add('right-panel-active');
-  }
+  if (name === 'controlCenter' || name === 'searchOptions') document.body.classList.add('right-panel-active');
 };
 
 const closeOverlay = () => {
@@ -710,32 +630,24 @@ const saveSettings = () => {
   localStorage.setItem('synapicSearchLang', settings.value.language);
   localStorage.setItem('synapicLocationBased', settings.value.locationBased);
   closeOverlay();
-  alert('Settings saved!'); 
 };
 
 onMounted(() => {
   const history = localStorage.getItem('searchHistory');
   if (history) searchHistory.value = JSON.parse(history);
-
   const lang = localStorage.getItem('synapicSearchLang');
   if (lang) settings.value.language = lang;
-
   const loc = localStorage.getItem('synapicLocationBased');
   if (loc) settings.value.locationBased = loc === 'true';
-
   const urlParams = new URLSearchParams(window.location.search);
   const urlQuery = urlParams.get('query');
   const urlType = urlParams.get('type');
-
   if (urlQuery) {
     searchQuery.value = urlQuery;
     currentType.value = urlType || 'web'; 
-    
     checkForSpecialQuery(urlQuery);
     fetchAiResponse(urlQuery);
-    
     fetchResults(searchQuery.value, currentType.value);
-    
     hasSearched.value = true;
   }
 });
@@ -840,11 +752,6 @@ onMounted(() => {
   font-size: 1.25rem;
   cursor: pointer;
   padding: 0 0.5rem;
-  transition: color 0.2s ease-in-out;
-}
-
-.clear-search-button:hover {
-  color: #FFFFFF;
 }
 
 .search-separator {
@@ -861,11 +768,6 @@ onMounted(() => {
   font-size: 1.25rem;
   cursor: pointer;
   padding: 0 0.5rem;
-  transition: color 0.2s ease-in-out;
-}
-
-.search-submit-button:hover {
-  color: #005BB5;
 }
 
 .search-history-dropdown {
@@ -901,7 +803,6 @@ onMounted(() => {
   border-radius: 0.25rem;
   color: #E0E0E0;
   cursor: pointer;
-  transition: background-color 0.2s;
 }
 
 .history-item:hover {
@@ -918,8 +819,6 @@ onMounted(() => {
   justify-content: center;
   gap: 1.5rem;
   margin-top: 1rem;
-  position: relative;
-  padding-bottom: 1px;
   width: 100%;
   max-width: 700px;
 }
@@ -930,13 +829,6 @@ onMounted(() => {
   font-size: 0.9rem;
   padding: 0.5rem 0.2rem;
   text-decoration: none;
-  transition: color 0.2s ease-in-out;
-  position: relative;
-  z-index: 10;
-}
-
-.search-option-item:hover {
-  color: #FFFFFF;
 }
 
 .search-option-item.selected {
@@ -951,10 +843,7 @@ onMounted(() => {
   border-radius: 0.5rem;
   width: 100%;
   max-width: 700px;
-  margin-bottom: 1.5rem;
-  margin-left: auto;
-  margin-right: auto;
-  margin-top: 1rem;
+  margin: 1rem auto;
 }
 
 .results-wrapper {
@@ -986,37 +875,22 @@ onMounted(() => {
   background-color: #2C2C2E;
   padding: 1rem;
   border-radius: 0.5rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
-}
-
-.result-link {
-  display: flex;
-  align-items: center;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .result-url-line {
   color: #8E8E93;
   font-size: 0.875rem;
-  display: block;
-  margin-bottom: 0.25rem;
-  text-decoration: none;
   display: flex;
   align-items: center;
-}
-
-.result-url-line:hover {
-  text-decoration: underline;
+  margin-bottom: 0.25rem;
+  text-decoration: none;
 }
 
 .favicon {
   width: 1rem;
   height: 1rem;
   margin-right: 0.25rem;
-  margin-top: -0.125rem;
 }
 
 .result-title {
@@ -1031,10 +905,6 @@ onMounted(() => {
   text-decoration: none;
 }
 
-.result-title a:hover {
-  text-decoration: underline;
-}
-
 .result-snippet {
   color: #E0E0E0;
   font-size: 0.875rem;
@@ -1046,7 +916,6 @@ onMounted(() => {
   background-color: #2C2C2E;
   padding: 1rem;
   border-radius: 0.5rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .image-grid {
@@ -1060,10 +929,6 @@ onMounted(() => {
   background-color: #1a1a1a;
   padding: 0.25rem;
   border-radius: 0.5rem;
-  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   cursor: pointer;
   width: 100%;
   aspect-ratio: 1 / 1;
@@ -1080,11 +945,6 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.2s;
-}
-
-.image-wrapper img:hover {
-  transform: scale(1.05);
 }
 
 .image-caption {
@@ -1093,9 +953,8 @@ onMounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  width: 100%;
   text-align: center;
-  padding: 0.25rem 0.1rem 0 0.1rem;
+  padding-top: 0.25rem;
 }
 
 .video-grid {
@@ -1105,20 +964,13 @@ onMounted(() => {
 }
 
 @media (min-width: 640px) {
-  .video-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  .video-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 .video-card {
   background-color: #2C2C2E;
   border-radius: 0.5rem;
   overflow: hidden;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-.video-thumbnail-link {
-  display: block;
 }
 
 .video-thumbnail-link img {
@@ -1127,9 +979,7 @@ onMounted(() => {
   object-fit: cover;
 }
 
-.video-info {
-  padding: 0.75rem;
-}
+.video-info { padding: 0.75rem; }
 
 .video-title {
   font-size: 1.125rem;
@@ -1141,10 +991,6 @@ onMounted(() => {
 .video-title a {
   color: inherit;
   text-decoration: none;
-}
-
-.video-title a:hover {
-  text-decoration: underline;
 }
 
 .video-source {
@@ -1162,18 +1008,13 @@ onMounted(() => {
   background-color: #2C2C2E;
   padding: 1rem;
   border-radius: 0.5rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
 @media (min-width: 640px) {
-  .news-card {
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 1rem;
-  }
+  .news-card { flex-direction: row; gap: 1rem; }
 }
 
 .news-thumbnail {
@@ -1181,18 +1022,13 @@ onMounted(() => {
   height: 6rem;
   object-fit: cover;
   border-radius: 0.375rem;
-  flex-shrink: 0;
 }
 
 @media (min-width: 640px) {
-  .news-thumbnail {
-    width: 8rem;
-  }
+  .news-thumbnail { width: 8rem; }
 }
 
-.news-content {
-  flex-grow: 1;
-}
+.news-content { flex-grow: 1; }
 
 .news-title {
   font-size: 1.125rem;
@@ -1206,10 +1042,6 @@ onMounted(() => {
   text-decoration: none;
 }
 
-.news-title a:hover {
-  text-decoration: underline;
-}
-
 .news-snippet {
   color: #E0E0E0;
   font-size: 0.875rem;
@@ -1221,18 +1053,11 @@ onMounted(() => {
   font-size: 0.75rem;
 }
 
-.news-date {
-  margin-left: 0.5rem;
-}
-
 .wiki-card {
   background-color: #2C2C2E;
   padding: 1.5rem;
   border-radius: 0.5rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: 700px;
-  margin: 0 auto;
 }
 
 .wiki-image {
@@ -1255,10 +1080,6 @@ onMounted(() => {
   text-decoration: none;
 }
 
-.wiki-title a:hover {
-  text-decoration: underline;
-}
-
 .wiki-summary {
   color: #E0E0E0;
   font-size: 0.875rem;
@@ -1272,19 +1093,10 @@ onMounted(() => {
   text-decoration: none;
 }
 
-.wiki-source:hover {
-  text-decoration: underline;
-}
-
 .no-results {
   text-align: center;
   color: #8E8E93;
   padding: 2rem 0;
-}
-
-.no-results-title {
-  font-size: 1.125rem;
-  margin-bottom: 0.5rem;
 }
 
 .overlay {
@@ -1298,7 +1110,7 @@ onMounted(() => {
   display: flex;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+  transition: opacity 0.3s;
 }
 
 .overlay.is-active {
@@ -1312,29 +1124,20 @@ onMounted(() => {
   right: 1.5rem;
   color: #999;
   cursor: pointer;
-  z-index: 1001;
   background: none;
   border: none;
-  padding: 0;
   font-size: 2rem;
-  transition: color 0.2s ease-in-out;
-}
-
-.overlay-close:hover {
-  color: #007aff;
 }
 
 .image-modal-content {
   background-color: #1a1a1a;
   padding: 1.5rem;
   border-radius: 0.5rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: 36rem;
-  width: 91.666667%;
+  max-width: 90%;
   margin: auto;
 }
 
@@ -1348,8 +1151,6 @@ onMounted(() => {
 
 .modal-image-title {
   color: white;
-  font-size: 1.125rem;
-  font-weight: 600;
   margin-bottom: 0.5rem;
 }
 
@@ -1359,11 +1160,6 @@ onMounted(() => {
   color: white;
   border-radius: 9999px;
   text-decoration: none;
-  transition: background-color 0.2s;
-}
-
-.modal-action-btn:hover {
-  background-color: #005bb5;
 }
 
 .slide-overlay .overlay-panel {
@@ -1372,63 +1168,23 @@ onMounted(() => {
   right: 0;
   height: 100%;
   width: 320px;
-  background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
-  box-shadow: -8px 0 30px rgba(0, 0, 0, 0.7);
+  background: #1a1a1a;
   transform: translateX(100%);
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.35s;
   padding: 1.5rem;
-  color: white;
-  text-align: left;
-  overflow-y: auto;
-  border-left: 1px solid #333;
-  display: flex;
-  flex-direction: column;
 }
 
-.slide-overlay.is-active .overlay-panel {
-  transform: translateX(0);
-}
-
-.overlay-title {
-  font-size: 1.5rem;
-  font-weight: bold;
-  margin-bottom: 1.5rem;
-  padding-left: 0.5rem;
-}
-
-.menu-container, .options-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: 100%;
-  margin-top: 1.5rem;
-}
+.slide-overlay.is-active .overlay-panel { transform: translateX(0); }
 
 .menu-item {
   display: flex;
   align-items: center;
   padding: 0.8rem 1.2rem;
   background-color: #2a2a2a;
-  border: 1px solid #3a3a3a;
   border-radius: 0.75rem;
   color: #e0e0e0;
   text-decoration: none;
-  transition: background-color 0.2s;
-}
-
-.menu-item:hover {
-  background-color: #3a3a3a;
-}
-
-.menu-item i {
-  margin-right: 1rem;
-  font-size: 1.5rem;
-  color: #007aff;
-}
-
-.menu-item span {
-  font-size: 0.95rem;
-  font-weight: 500;
+  margin-bottom: 0.5rem;
 }
 
 .toggle-switch {
@@ -1438,19 +1194,12 @@ onMounted(() => {
   height: 28px;
 }
 
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
 
 .slider {
   position: absolute;
   cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   background-color: #3a3a3a;
   transition: .4s;
   border-radius: 28px;
@@ -1459,26 +1208,15 @@ onMounted(() => {
 .slider:before {
   position: absolute;
   content: "";
-  height: 20px;
-  width: 20px;
-  left: 4px;
-  bottom: 4px;
+  height: 20px; width: 20px;
+  left: 4px; bottom: 4px;
   background-color: white;
   transition: .4s;
   border-radius: 50%;
 }
 
-input:checked + .slider {
-  background-color: #007aff;
-}
-
-input:checked + .slider:before {
-  transform: translateX(20px);
-}
-
-.option-row {
-  justify-content: space-between;
-}
+input:checked + .slider { background-color: #007aff; }
+input:checked + .slider:before { transform: translateX(20px); }
 
 .custom-select {
   background-color: #2C2C2E;
@@ -1495,52 +1233,17 @@ input:checked + .slider:before {
   color: white;
   border-radius: 9999px;
   border: none;
-  font-weight: bold;
   width: 100%;
   cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.save-settings-btn:hover {
-  background-color: #005bb5;
-}
-
-.grid-view-overlay {
-  justify-content: center;
-  align-items: center;
 }
 
 .grid-modal-content {
   background-color: #1a1a1a;
   padding: 2.5rem;
   border-radius: 1rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
   width: 90%;
   max-width: 450px;
-  border: 1px solid #333;
-  transform: translateY(-30px);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.grid-view-overlay.is-active .grid-modal-content {
-  transform: translateY(0);
-}
-
-.grid-title {
-  font-size: 1.875rem;
-  font-weight: bold;
-  margin-bottom: 1.5rem;
-  color: white;
-  text-align: center;
-}
-
-.quick-search-form {
-  width: 100%;
-  margin-bottom: 1.5rem;
-}
-
-.quick-input-wrapper {
-  position: relative;
+  margin: auto;
 }
 
 .quick-search-input {
@@ -1548,36 +1251,8 @@ input:checked + .slider:before {
   border-radius: 9999px;
   background-color: #18181B;
   color: #e0e0e0;
-  padding: 0.75rem 1.5rem 0.75rem 3rem;
-  font-size: 1rem;
+  padding: 0.75rem 1.5rem;
   border: 1px solid transparent;
-}
-
-.quick-search-input:focus {
-  outline: none;
-  box-shadow: 0 0 0 1px #007aff;
-  background-color: #2a2a2a;
-}
-
-.quick-submit-btn {
-  position: absolute;
-  left: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #999;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-.quick-submit-btn:hover {
-  color: white;
-}
-
-.quick-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
 }
 
 .quick-link {
@@ -1585,28 +1260,13 @@ input:checked + .slider:before {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  border-radius: 0.5rem;
   text-decoration: none;
   color: white;
-  transition: background-color 0.2s;
-}
-
-.quick-link:hover {
-  background-color: #2a2a2a;
-}
-
-.quick-link i {
-  color: #007aff;
 }
 
 body.right-panel-active .main-content,
 body.right-panel-active .main-header {
   transform: translateX(-320px);
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.main-content, .main-header {
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .weather-widget {
@@ -1614,77 +1274,7 @@ body.right-panel-active .main-header {
   background-color: #1a1a1a;
   border: 1px solid #3a3a3a;
   padding: 1.5rem;
-  margin: 1.5rem auto 1.5rem;
-}
-
-.widget-title {
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: #007aff;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-}
-
-.widget-title i {
-  margin-right: 0.75rem;
-  font-size: 1.5rem;
-}
-
-.weather-content {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-}
-
-.weather-main-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.weather-icon {
-  width: 64px;
-  height: 64px;
-}
-
-.temp-display {
-  font-size: 3rem;
-  font-weight: 700;
-  color: white;
-  margin-top: -0.5rem;
-}
-
-.weather-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.condition-text {
-  font-size: 1.125rem;
-  font-weight: 500;
-  color: #e0e0e0;
-  margin-bottom: 0.5rem;
-}
-
-.detail-row {
-  display: flex;
-  align-items: center;
-  font-size: 0.875rem;
-  color: #b0b0b0;
-}
-
-.detail-row i {
-  margin-right: 0.5rem;
-  width: 1rem;
-  text-align: center;
-  color: #007aff;
-}
-
-.detail-row strong {
-  margin-left: auto;
-  color: white;
+  margin: 1.5rem auto;
 }
 
 .calculator-widget {
@@ -1692,7 +1282,7 @@ body.right-panel-active .main-header {
   background-color: #1a1a1a;
   border: 1px solid #3a3a3a;
   padding: 1.5rem;
-  margin: 1.5rem auto 1.5rem;
+  margin: 1.5rem auto;
 }
 
 .calculator-display {
@@ -1703,8 +1293,6 @@ body.right-panel-active .main-header {
   padding: 1rem;
   border-radius: 0.5rem;
   margin-bottom: 1rem;
-  overflow-x: auto;
-  white-space: nowrap;
 }
 
 .calculator-grid {
@@ -1718,46 +1306,9 @@ body.right-panel-active .main-header {
   color: white;
   border: none;
   padding: 1rem;
-  font-size: 1.25rem;
   border-radius: 9999px;
   cursor: pointer;
-  transition: background-color 0.2s;
   height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 500;
-}
-
-.calculator-grid button:hover {
-  background-color: #3a3a3a;
-}
-
-.btn-op {
-  background-color: #ff9500;
-  color: white;
-}
-
-.btn-op:hover {
-  background-color: #e08500;
-}
-
-.btn-clear {
-  background-color: #5a5a5f;
-  color: white;
-}
-
-.btn-clear:hover {
-  background-color: #6d6d74;
-}
-
-.btn-equal {
-  background-color: #007aff;
-  color: white;
-}
-
-.btn-equal:hover {
-  background-color: #005bb5;
 }
 
 .ai-result-card {
@@ -1766,9 +1317,6 @@ body.right-panel-active .main-header {
   border-radius: 12px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  position: relative;
-  overflow: hidden;
   border-left: 4px solid #8e44ad;
 }
 
@@ -1776,8 +1324,8 @@ body.right-panel-active .main-header {
   display: flex;
   align-items: center;
   margin-bottom: 1rem;
-  border-bottom: 1px solid #333;
   padding-bottom: 0.75rem;
+  border-bottom: 1px solid #333;
 }
 
 .ai-icon-wrapper {
@@ -1789,13 +1337,9 @@ body.right-panel-active .main-header {
   align-items: center;
   justify-content: center;
   margin-right: 0.75rem;
-  box-shadow: 0 0 10px rgba(142, 68, 173, 0.4);
 }
 
-.ai-icon-wrapper i {
-  color: white;
-  font-size: 0.9rem;
-}
+.ai-icon-wrapper i { color: white; font-size: 0.9rem; }
 
 .ai-title {
   font-size: 1.1rem;
@@ -1803,35 +1347,72 @@ body.right-panel-active .main-header {
   background: linear-gradient(90deg, #fff, #b0b0b0);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  letter-spacing: 0.5px;
 }
 
 .ai-content-body {
   color: #e0e0e0;
   line-height: 1.6;
   font-size: 0.95rem;
+  position: relative;
 }
 
-.ai-text {
-  white-space: pre-wrap;
+.ai-content-body.is-collapsed {
+  max-height: 200px;
+  overflow: hidden;
 }
 
-.ai-loading-container {
+.ai-text { white-space: pre-wrap; }
+
+.read-more-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100px;
+  background: linear-gradient(transparent, #17171a);
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 0.5rem;
 }
+
+.read-more-btn {
+  background-color: #2c2c2e;
+  border: 1px solid #444;
+  color: #eee;
+  padding: 8px 24px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.read-more-btn:hover {
+  background-color: #3a3a3c;
+  border-color: #8e44ad;
+  transform: translateY(-2px);
+}
+
+.read-more-btn i {
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+}
+
+.read-more-btn:hover i { transform: translateY(2px); }
+
+.ai-loading-container { display: flex; flex-direction: column; gap: 0.5rem; }
 
 .skeleton-line {
   height: 12px;
   background-color: #333;
   border-radius: 6px;
-  animation: pulse 1.5s infinite ease-in-out;
+  animation: pulse 1.5s infinite;
 }
-
-.width-full { width: 100%; }
-.width-90 { width: 90%; }
-.width-70 { width: 70%; }
 
 @keyframes pulse {
   0% { opacity: 0.6; }
@@ -1841,34 +1422,11 @@ body.right-panel-active .main-header {
 
 .markdown-body :deep(h1), 
 .markdown-body :deep(h2), 
-.markdown-body :deep(h3) {
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
-  color: #fff;
-}
+.markdown-body :deep(h3) { margin-top: 1rem; margin-bottom: 0.5rem; color: #fff; }
 
-.markdown-body :deep(p) {
-  margin-bottom: 0.75rem;
-}
+.markdown-body :deep(p) { margin-bottom: 0.75rem; }
 
-.markdown-body :deep(code) {
-  background-color: #3a3a3c;
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  font-family: monospace;
-}
+.markdown-body :deep(code) { background-color: #3a3a3c; padding: 0.2rem 0.4rem; border-radius: 4px; font-family: monospace; }
 
-.markdown-body :deep(pre) {
-  background-color: #1a1a1a;
-  padding: 1rem;
-  border-radius: 8px;
-  overflow-x: auto;
-  margin: 1rem 0;
-}
-
-.markdown-body :deep(ul), 
-.markdown-body :deep(ol) {
-  margin-left: 1.5rem;
-  margin-bottom: 1rem;
-}
+.markdown-body :deep(pre) { background-color: #1a1a1a; padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; }
 </style>
