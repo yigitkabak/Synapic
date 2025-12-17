@@ -3,6 +3,7 @@ import { fetchBingImages, fetchNewsResults, fetchYoutubeResults, getAggregatedWe
 import { fetchOpenRouterResponse } from "./src/ai";
 import validApiKeys from "./src/json/keys.json";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 
 interface ApiResponse {
     query: string;
@@ -20,8 +21,29 @@ interface ApiResponse {
 const app = express();
 const PORT = 3000;
 
+let requestCount = 0;
+const REQUEST_THRESHOLD = 100;
+const RESET_INTERVAL = 5 * 60 * 60 * 1000;
+
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 100, 
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests, please try again after 15 minutes." }
+});
+
+const requestCounter = (req: Request, res: Response, next: NextFunction) => {
+    if (req.url.startsWith('/api')) {
+        requestCount++;
+    }
+    next();
+};
+
 app.use(cors());
 app.use(express.json());
+app.use(requestCounter);
+app.use("/api/", limiter);
 
 const checkApiKey = (req: Request, res: Response, next: NextFunction) => {
     const apiKey = req.query.apikey as string;
@@ -69,7 +91,7 @@ app.get("/api/search", checkApiKey, async (req: Request, res: Response) => {
 
         const wikiPromise = (type === 'wiki') ?
             fetchWikiSummary(query, lang)
-            .catch((e: Error) => { return null; })
+            .catch(() => { return null; })
             : Promise.resolve(null);
 
         let mainFetchPromise: Promise<any>;
@@ -103,7 +125,7 @@ app.get("/api/search", checkApiKey, async (req: Request, res: Response) => {
 
         const [wikiResultForOtherTypes, mainResult] = await Promise.all([
             wikiPromise,
-            mainFetchPromise.catch((e: Error) => {
+            mainFetchPromise.catch(() => {
                 return [];
             })
         ]);
@@ -140,6 +162,15 @@ app.get("/api/search", checkApiKey, async (req: Request, res: Response) => {
         res.status(500).json({ error: "A server error occurred during search." });
     }
 });
+
+app.get('/status', (req: Request, res: Response) => {
+    const status = requestCount > REQUEST_THRESHOLD ? 'BUSY' : 'OK';
+    res.send({ status, totalRequests: requestCount });
+});
+
+setInterval(() => {
+    requestCount = 0;
+}, RESET_INTERVAL);
 
 app.listen(PORT, () => {
     console.log(`API Server is running on http://localhost:${PORT}`);
