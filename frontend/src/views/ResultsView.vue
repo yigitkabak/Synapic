@@ -70,9 +70,28 @@
 
       <div class="results-wrapper">
         <div class="results-container">
+
+          <div v-if="currentType === 'web' && (aiLoading || (aiResponseText && aiResponseText.length > 0))" class="ai-result-card">
+            <div class="ai-card-header">
+              <div class="ai-icon-wrapper">
+                <i class="fas fa-robot"></i>
+              </div>
+              <span class="ai-title">Synapic AI Overview</span>
+            </div>
+            
+            <div v-if="aiLoading" class="ai-loading-container">
+              <div class="skeleton-line width-full"></div>
+              <div class="skeleton-line width-90"></div>
+              <div class="skeleton-line width-70"></div>
+            </div>
+
+            <div v-else class="ai-content-body">
+              <div class="ai-text markdown-body" v-html="renderMarkdown(aiResponseText)"></div>
+            </div>
+          </div>
           
           <div v-if="showCalculator" class="calculator-widget result-card">
-            <h2 class="widget-title"><i class="fas fa-calculator"></i> Hesap Makinesi</h2>
+            <h2 class="widget-title"><i class="fas fa-calculator"></i> Calculator</h2>
             <div class="calculator-display">{{ calculatorDisplay }}</div>
             <div class="calculator-grid">
               <button @click="appendChar('(')" class="btn-op">(</button>
@@ -105,7 +124,7 @@
           <div v-if="showWeatherWidget && weatherData" class="weather-widget result-card">
             <h2 class="widget-title">
               <i class="fas fa-cloud-sun"></i> 
-              Hava Durumu - {{ weatherData.city }}
+              Weather - {{ weatherData.city }}
             </h2>
             <div class="weather-content">
               <div class="weather-main-info">
@@ -118,17 +137,17 @@
                 <p class="condition-text">{{ weatherData.condition }}</p>
                 <div class="detail-row">
                   <i class="fas fa-thermometer-half"></i> 
-                  <span>Hissedilen:</span> 
+                  <span>Feels Like:</span> 
                   <strong>{{ weatherData.feelsLikeC }}°C</strong>
                 </div>
                 <div class="detail-row">
                   <i class="fas fa-wind"></i> 
-                  <span>Rüzgar:</span> 
-                  <strong>{{ weatherData.windKph }} km/s</strong>
+                  <span>Wind:</span> 
+                  <strong>{{ weatherData.windKph }} km/h</strong>
                 </div>
                 <div class="detail-row">
                   <i class="fas fa-tint"></i> 
-                  <span>Nem:</span> 
+                  <span>Humidity:</span> 
                   <strong>%{{ weatherData.humidity }}</strong>
                 </div>
               </div>
@@ -329,6 +348,17 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'; 
+import markdownit from 'markdown-it';
+
+const md = markdownit({
+  html: true,
+  linkify: true,
+  typographer: true
+});
+
+const renderMarkdown = (text) => {
+  return md.render(text || '');
+};
 
 const searchQuery = ref('');
 const quickSearchQuery = ref('');
@@ -351,6 +381,9 @@ const videos = ref([]);
 const newsResults = ref([]);
 const wiki = ref({});
 
+const aiResponseText = ref('');
+const aiLoading = ref(false);
+
 const API_BASE_URL = '/api/search'; 
 const API_KEY = 'synapic'; 
 
@@ -360,7 +393,6 @@ let currentCalculation = '';
 
 const showWeatherWidget = ref(false);
 const weatherData = ref(null);
-
 
 const getFavicon = (url) => {
   try {
@@ -488,6 +520,31 @@ const checkForSpecialQuery = (query) => {
   return showCalculator.value || showWeatherWidget.value; 
 };
 
+const fetchAiResponse = async (query) => {
+  aiLoading.value = true;
+  aiResponseText.value = ''; 
+  
+  try {
+    const response = await fetch(`http://localhost:3000/api/ai?query=${encodeURIComponent(query)}&apikey=synapic`);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('AI Response Data:', data);
+      
+      if (data && data.response) {
+        aiResponseText.value = data.response;
+      } else {
+        console.warn('AI response data format invalid:', data);
+      }
+    } else {
+        console.error('AI fetch failed with status:', response.status);
+    }
+  } catch (error) {
+    console.error('AI fetch error', error);
+  } finally {
+    aiLoading.value = false;
+  }
+};
 
 const fetchResults = async (query, type) => {
   errorMessage.value = '';
@@ -566,6 +623,7 @@ const handleSearch = () => {
     saveSearchQuery(query);
     
     checkForSpecialQuery(query);
+    fetchAiResponse(query);
 
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set('query', query);
@@ -674,6 +732,7 @@ onMounted(() => {
     currentType.value = urlType || 'web'; 
     
     checkForSpecialQuery(urlQuery);
+    fetchAiResponse(urlQuery);
     
     fetchResults(searchQuery.value, currentType.value);
     
@@ -1699,5 +1758,117 @@ body.right-panel-active .main-header {
 
 .btn-equal:hover {
   background-color: #005bb5;
+}
+
+.ai-result-card {
+  background: linear-gradient(145deg, #1e1e24 0%, #17171a 100%);
+  border: 1px solid #3a3a3c;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+  border-left: 4px solid #8e44ad;
+}
+
+.ai-card-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #333;
+  padding-bottom: 0.75rem;
+}
+
+.ai-icon-wrapper {
+  background: linear-gradient(135deg, #8e44ad, #3498db);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.75rem;
+  box-shadow: 0 0 10px rgba(142, 68, 173, 0.4);
+}
+
+.ai-icon-wrapper i {
+  color: white;
+  font-size: 0.9rem;
+}
+
+.ai-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, #fff, #b0b0b0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.5px;
+}
+
+.ai-content-body {
+  color: #e0e0e0;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.ai-text {
+  white-space: pre-wrap;
+}
+
+.ai-loading-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skeleton-line {
+  height: 12px;
+  background-color: #333;
+  border-radius: 6px;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.width-full { width: 100%; }
+.width-90 { width: 90%; }
+.width-70 { width: 70%; }
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 0.3; }
+  100% { opacity: 0.6; }
+}
+
+.markdown-body :deep(h1), 
+.markdown-body :deep(h2), 
+.markdown-body :deep(h3) {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.markdown-body :deep(p) {
+  margin-bottom: 0.75rem;
+}
+
+.markdown-body :deep(code) {
+  background-color: #3a3a3c;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.markdown-body :deep(pre) {
+  background-color: #1a1a1a;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.markdown-body :deep(ul), 
+.markdown-body :deep(ol) {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
 }
 </style>
