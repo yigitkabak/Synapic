@@ -1,5 +1,8 @@
 import { JSDOM } from "jsdom";
 import path from "path";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 export interface WikipediaSummaryApiResponse {
     title: string;
@@ -110,7 +113,7 @@ export const Cache = {
 
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const SEARX_BASE_URL = "https://searx.be";
-const GNEWS_API_KEY = "eaa76e708952a1df00eae28a4b2d3654";
+const GNEWS_API_KEY = process.env.GNEWS;
 const GNEWS_BASE_URL = "https://gnews.io/api/v4/search";
 
 const langToCountryCode: { [key: string]: string } = {
@@ -509,7 +512,6 @@ export async function fetchNewsResults(query: string, lang: string = "tr"): Prom
 
 function isUnwantedLanguage(text: string): boolean {
     if (!text) return false;
-    // Rusça/Kiril (\u0400-\u04FF), Yunanca (\u0370-\u03FF), İbranice (\u0590-\u05FF), Arapça (\u0600-\u06FF), CJK (Çince/Japonca/Korece: \u4E00-\u9FFF, \u3040-\u30FF, \u1100-\u11FF, \uAC00-\uD7A3)
     const unwantedScriptsRegex = /[\u0400-\u04FF\u0370-\u03FF\u0590-\u05FF\u0600-\u06FF\u4E00-\u9FFF\u3040-\u30FF\u1100-\u11FF\uAC00-\uD7A3]/;
     return unwantedScriptsRegex.test(text);
 }
@@ -532,7 +534,6 @@ function rankAndSortResults(results: SearchResult[], query: string, lang: string
     const queryTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 2);
     const lowerQuery = query.toLowerCase();
     
-    // Genelleştirilmiş Mutlak Domain Eşleşmesi için sorguyu temizleme
     const normalizedQuery = lowerQuery
         .replace(/^https?:\/\/(www\.)?/, "")
         .replace(/\/.*$/, "")
@@ -552,7 +553,6 @@ function rankAndSortResults(results: SearchResult[], query: string, lang: string
             const hostname = url.hostname.toLowerCase();
             const cleanHostname = hostname.replace(/^www\./, "");
             
-            // 1. MUTLAK DOMAIN ÖNCELİĞİ (15000 Puan) - Tüm diller için geçerli. Sorguyla eşleşen domain en üstte.
             if (searchTargetDomain.length > 0) {
                 if (cleanHostname.includes(searchTargetDomain)) {
                     if (cleanHostname.split('.')[0] === searchTargetDomain) {
@@ -567,31 +567,28 @@ function rankAndSortResults(results: SearchResult[], query: string, lang: string
                 }
             }
             
-            // 2. TAM İFADE EŞLEŞMESİ ÖNCELİĞİ (1000 Puan) 
             if (lowerTitle.includes(lowerQuery)) {
                 score += 1000; 
             } 
             
-            // 3. TÜRKÇE SİTE AGRESİF ÖNCELİĞİ (Sadece Türkçe sorgularda geçerli)
             if (lang === 'tr') {
                 if (trTlds.some(tld => hostname.endsWith(tld))) {
-                    score += 8000; // Agresif öncelik puanı: TR siteleri EN sitelerinden üstte kalır.
+                    score += 8000;
                 }
             }
             
-            // 4. Tekil Kelime Eşleşmeleri
+
             queryTerms.forEach(term => {
                 if (lowerTitle.includes(term)) score += 70; 
                 if (lowerSnippet.includes(term)) score += 30; 
             });
 
 
-            // 5. Bilgilendirici Siteler Önceliği
+
             if (informativeSites.some(site => hostname.endsWith(site))) {
                 score += 80;
             }
 
-            // 6. Bölgesel Alan Adı (TLD) Önceliği - TR'nin haricindeki TLD'ler
             if (hostname.endsWith(`.${countryCode}`)) {
                 score += 50;
             } else if (lang === 'en' && specialEngTlds.some(tld => hostname.endsWith(tld))) {
@@ -621,16 +618,16 @@ export async function getAggregatedWebResults(query: string, start: number = 0, 
     if (fullCombinedList.length === 0) {
         try {
             const fetchPromises: Promise<SearchResult[]>[] = [
-                // Google: İlk 20 sonuç
+
                 fetchGoogleResults(query, 0, lang), 
                 fetchGoogleResults(query, 10, lang),
-                // Bing: İlk 20 sonuç
+
                 fetchBingResults(query, 0, lang), 
                 fetchBingResults(query, 10, lang),
-                // DuckDuckGo: İlk 40 sonuç
+
                 fetchDuckDuckGoResults(query, 0, lang), 
                 fetchDuckDuckGoResults(query, 20, lang),
-                // Searx: İlk 20 sonuç
+
                 fetchSearxResults(query, 2, lang)
             ];
 
@@ -651,7 +648,6 @@ export async function getAggregatedWebResults(query: string, start: number = 0, 
     }
     
     let filteredList = fullCombinedList;
-    // Yabancı/istenmeyen alfabeleri (Çince, Kiril, Arapça, vb.) her dilde temizle
     filteredList = fullCombinedList.filter(result => !isUnwantedLanguage(result.title) && !isUnwantedLanguage(result.snippet));
     
     const sortedList = rankAndSortResults(filteredList, query, lang);
