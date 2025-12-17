@@ -9,6 +9,9 @@
   },
   "dependencies": {
     "core-js": "^3.8.3",
+    "dompurify": "^3.3.1",
+    "markdown-it": "^14.1.0",
+    "marked": "^17.0.1",
     "vue": "^3.2.13",
     "vue-router": "^4.6.3"
   },
