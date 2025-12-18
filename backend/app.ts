@@ -115,7 +115,7 @@ app.get("/api/search", checkApiKey, async (req: Request, res: Response) => {
                 break;
             case "news":
                 mainFetchPromise = fetchNewsResults(query, lang);
-                searchSourceApi = "News (API - gnews.io)";
+                searchSourceApi = "News (Bing + DDG + Web Fallback)";
                 break;
             default:
                 mainFetchPromise = getAggregatedWebResults(query, start, lang);
