@@ -50,24 +50,6 @@ export interface VideoResult {
     source: string;
 }
 
-export interface NewsArticle {
-    title: string;
-    description: string;
-    content: string;
-    url: string;
-    image?: string;
-    publishedAt: string;
-    source: {
-        name: string;
-        url: string;
-    };
-}
-
-export interface GNewsApiResponse {
-    totalArticles: number;
-    articles: NewsArticle[];
-}
-
 interface CacheItem<T> {
     data: T | null;
     expiry: number;
@@ -113,8 +95,6 @@ export const Cache = {
 
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const SEARX_BASE_URL = "https://searx.be";
-const GNEWS_API_KEY = process.env.GNEWS;
-const GNEWS_BASE_URL = "https://gnews.io/api/v4/search";
 
 const langToCountryCode: { [key: string]: string } = {
     "tr": "tr",
@@ -327,21 +307,18 @@ export async function fetchBingResults(query: string, start: number = 0, lang: s
                     
                     if (encodedTargetUrl) {
                         let decoded = decodeURIComponent(encodedTargetUrl);
-                        
                         const base64Start = decoded.indexOf('aHR0'); 
                         if (base64Start !== -1) {
                             decoded = decoded.substring(base64Start);
                         } else {
                             finalLink = resultUrl; 
                         }
-
                         finalLink = Buffer.from(decoded, 'base64').toString('utf8');
                     }
                 } catch (e: any) {
                     finalLink = resultUrl; 
                 }
             }
-
 
             if (title && finalLink) {
                 try {
@@ -355,10 +332,81 @@ export async function fetchBingResults(query: string, start: number = 0, lang: s
                         displayUrl: displayUrl, 
                         source: "Bing"
                     });
-                } catch (e: any) {
-                }
+                } catch (e: any) {}
             }
         });
+        Cache.set(cacheKey, results);
+        return results;
+    } catch (error: any) {
+        Cache.set(cacheKey, []);
+        return [];
+    }
+}
+
+export async function fetchBingNews(query: string, lang: string = "tr"): Promise<SearchResult[]> {
+    const countryCode = langToCountryCode[lang] || "us";
+    const cacheKey = `bing_news_${lang}_${query}`;
+    const cachedData = Cache.get<SearchResult[]>(cacheKey);
+    if (cachedData) return cachedData;
+
+    try {
+        const market = `${lang}-${countryCode.toUpperCase()}`;
+        const url = `https://www.bing.com/news/search?q=${encodeURIComponent(query)}&mkt=${market}`;
+        
+        const response = await fetch(url, { 
+            headers: { 
+                "User-Agent": USER_AGENT,
+                "Accept-Language": `${lang}-${lang.toUpperCase()},${lang};q=0.9`
+            }, 
+            signal: AbortSignal.timeout(8000) 
+        });
+
+        const html = await response.text();
+        const document = parseHTML(html);
+        const results: SearchResult[] = [];
+
+        // Bing News genel yapısına göre scraping
+        document.querySelectorAll(".news-card, .t_t, .card-content").forEach((element) => {
+            const titleElement = element.querySelector("a.title, a.t_t, .title");
+            const title = titleElement?.textContent?.trim() || "";
+            const link = titleElement?.getAttribute("href") || "";
+            
+            const snippetElement = element.querySelector(".snippet, .c_t, .news-desc");
+            const snippet = snippetElement?.textContent?.trim() || "";
+
+            const sourceElement = element.querySelector(".source, .c_src, .news-source");
+            const source = sourceElement?.textContent?.trim() || "Bing News";
+
+            const timeElement = element.querySelector(".time, .news-date");
+            const timeStr = timeElement?.textContent?.trim() || "";
+
+            const imgElement = element.querySelector("img.rms_img, img");
+            const image = imgElement?.getAttribute("src") || undefined;
+
+            if (title && link && link.startsWith("http")) {
+                 // Resim URL'si bazen data-src içinde olabilir
+                let finalImage = image;
+                if (!finalImage) {
+                    finalImage = imgElement?.getAttribute("data-src") || undefined;
+                }
+
+                try {
+                     const parsedUrl = new URL(link);
+                     const displayUrl = parsedUrl.hostname.replace(/^www\./, "");
+
+                     results.push({
+                        title,
+                        link,
+                        snippet: snippet || timeStr,
+                        displayUrl,
+                        source,
+                        image: finalImage,
+                        date: new Date().toISOString() // Gerçek tarih parsing zor olduğu için şimdilik
+                     });
+                } catch(e) {}
+            }
+        });
+
         Cache.set(cacheKey, results);
         return results;
     } catch (error: any) {
@@ -423,6 +471,74 @@ export async function fetchDuckDuckGoResults(query: string, start: number = 0, l
     }
 }
 
+export async function fetchDuckDuckGoNews(query: string, lang: string = "tr"): Promise<SearchResult[]> {
+    const cacheKey = `duckduckgo_news_${lang}_${query}`;
+    const cachedData = Cache.get<SearchResult[]>(cacheKey);
+    if (cachedData) return cachedData;
+
+    try {
+        const ddgLangCode = `${lang}-${lang.toUpperCase()}`;
+        const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}&iar=news&kl=${ddgLangCode}&df=`;
+        
+        const response = await fetch(url, {
+            headers: { 
+                "User-Agent": USER_AGENT,
+                "Accept-Language": `${ddgLangCode},${lang};q=0.8,en-US;q=0.5,en;q=0.3`
+            },
+            signal: AbortSignal.timeout(10000)
+        });
+
+        const html = await response.text();
+        const document = parseHTML(html);
+        const results: SearchResult[] = [];
+
+        document.querySelectorAll("div.result").forEach((element) => {
+            const titleElement = element.querySelector("h2.result__title a");
+            const title = titleElement?.textContent?.trim() || "";
+            let resultUrl = titleElement?.getAttribute("href") || "";
+            const snippet = element.querySelector(".result__snippet")?.textContent?.trim() || "";
+            const sourceElement = element.querySelector(".result__url");
+            const source = sourceElement?.textContent?.trim() || "DuckDuckGo News";
+            const imageElement = element.querySelector(".result__image img");
+            const image = imageElement?.getAttribute("src") || undefined;
+
+            if (title && resultUrl) {
+                if (resultUrl.startsWith("//duckduckgo.com/l/?uddg=")) {
+                    try {
+                        const params = new URLSearchParams(resultUrl.split("?")[1]);
+                        const decodedUrl = decodeURIComponent(params.get("uddg") || "");
+                        if (decodedUrl) resultUrl = decodedUrl;
+                    } catch (e: any) {}
+                }
+
+                if (!resultUrl.startsWith("http")) return;
+
+                try {
+                    const parsedResultUrl = new URL(resultUrl);
+                    const cleanDisplayUrl = parsedResultUrl.hostname.replace(/^www\./, "");
+
+                    results.push({
+                        title,
+                        link: resultUrl,
+                        snippet,
+                        displayUrl: cleanDisplayUrl,
+                        source: source,
+                        image: image ? `https:${image}` : undefined,
+                        date: new Date().toISOString()
+                    });
+                } catch (e: any) {}
+            }
+        });
+
+        Cache.set(cacheKey, results);
+        return results;
+
+    } catch (error: any) {
+        Cache.set(cacheKey, []);
+        return [];
+    }
+}
+
 export async function fetchSearxResults(query: string, numPages: number = 10, lang: string = "tr"): Promise<SearchResult[]> {
     if (!SEARX_BASE_URL) return [];
     const cacheKey = `searx_web_html_pages_0_to_${numPages - 1}_${lang}_${query}`;
@@ -479,34 +595,54 @@ export async function fetchSearxResults(query: string, numPages: number = 10, la
 }
 
 export async function fetchNewsResults(query: string, lang: string = "tr"): Promise<SearchResult[]> {
-    const countryCode = langToCountryCode[lang] || "us";
-    const cacheKey = `news_results_${lang}_${query}`;
-    const cachedData = Cache.get<SearchResult[]>(cacheKey);
+    const combinedKey = `aggregated_news_bing_ddg_${lang}_${query}`;
+    const cachedData = Cache.get<SearchResult[]>(combinedKey);
     if (cachedData) return cachedData;
 
     try {
-        const url = `${GNEWS_BASE_URL}?q=${encodeURIComponent(query)}&lang=${lang}&country=${countryCode}&max=10&apikey=${GNEWS_API_KEY}`;
-        const response = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(7000) });
-        const data: GNewsApiResponse = await response.json() as GNewsApiResponse;
+        // 1. Önce özel haber kaynaklarını dene
+        const [bingNews, ddgNews] = await Promise.all([
+            fetchBingNews(query, lang),
+            fetchDuckDuckGoNews(query, lang)
+        ]);
 
-        if (data && data.articles) {
-            const newsResults: SearchResult[] = data.articles.map(article => ({
-                title: article.title,
-                snippet: article.description || "No summary found.",
-                link: article.url,
-                displayUrl: new URL(article.url).hostname.replace(/^www\./, ""), 
-                source: article.source?.name || "News Source",
-                image: article.image,
-                date: article.publishedAt
+        let combinedResults = [...bingNews, ...ddgNews];
+        
+        // 2. Eğer sonuç çok azsa veya yoksa, standart web aramasını devreye sok (Fallback)
+        // Kullanıcı "her ne yazılırsa birşey göstersin" dediği için bu kısım kritik.
+        if (combinedResults.length < 2) {
+            const [fallbackGoogle, fallbackBing] = await Promise.all([
+                fetchGoogleResults(query, 0, lang),
+                fetchBingResults(query, 0, lang)
+            ]);
+            
+            // Web sonuçlarını haber formatına dönüştür
+            const fallbackResults = [...fallbackGoogle, ...fallbackBing].map(item => ({
+                ...item,
+                source: item.source + " (Web)" // Kaynağı belirt
             }));
-            Cache.set(cacheKey, newsResults);
-            return newsResults;
+
+            combinedResults = [...combinedResults, ...fallbackResults];
         }
-        Cache.set(cacheKey, []);
-        return [];
-    } catch (error: any) {
-        Cache.set(cacheKey, []);
-        return [];
+
+        const uniqueResults = new Map<string, SearchResult>();
+        combinedResults.forEach(item => {
+            if (!uniqueResults.has(item.link)) {
+                uniqueResults.set(item.link, item);
+            }
+        });
+
+        const sortedList = Array.from(uniqueResults.values());
+        Cache.set(combinedKey, sortedList);
+        return sortedList;
+    } catch (e) {
+        // En kötü durumda bile boş dönme, web araması yap
+        try {
+             const fallback = await fetchGoogleResults(query, 0, lang);
+             return fallback;
+        } catch(err) {
+            return [];
+        }
     }
 }
 
@@ -651,7 +787,6 @@ export async function getAggregatedWebResults(query: string, start: number = 0, 
     filteredList = fullCombinedList.filter(result => !isUnwantedLanguage(result.title) && !isUnwantedLanguage(result.snippet));
     
     const sortedList = rankAndSortResults(filteredList, query, lang);
-    Cache.clear();
     return sortedList;
 }
 
