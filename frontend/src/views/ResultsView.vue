@@ -514,8 +514,10 @@ const fetchResults = async (query, type) => {
   videos.value = [];
   newsResults.value = [];
   wiki.value = {};
+
   if (query.trim() === '') return;
   const url = `${API_BASE_URL}?query=${encodeURIComponent(query)}&type=${type}&lang=${settings.value.language}&apikey=${API_KEY}`;
+  
   try {
     const response = await fetch(url);
     if (!response.ok) {
@@ -525,24 +527,27 @@ const fetchResults = async (query, type) => {
         return;
     }
     const data = await response.json();
-    if (type === 'wiki') wiki.value = data.wiki || {};
-    else if (type === 'image') images.value = data.images || [];
-    else {
+
+    if (type === 'wiki') {
+      wiki.value = data.wiki || {};
+    } else if (type === 'image') {
+      images.value = data.images || [];
+    } else if (type === 'video') {
+      videos.value = data.videos || [];
+    } else if (type === 'news') {
+      newsResults.value = data.newsResults || [];
+    } else if (type === 'web') {
       const payload = data.results || [];
       if (Array.isArray(payload)) {
-        if (type === 'web') {
-           let index = 0;
-           const addResult = () => {
-             if (index < payload.length) {
-               results.value.push(payload[index]);
-               index++;
-               setTimeout(addResult, 50);
-             }
-           };
-           addResult();
-        }
-        else if (type === 'news') newsResults.value = payload;
-        else if (type === 'video') videos.value = payload;
+        let index = 0;
+        const addResult = () => {
+          if (index < payload.length) {
+            results.value.push(payload[index]);
+            index++;
+            setTimeout(addResult, 50);
+          }
+        };
+        addResult();
       }
     }
   } catch (error) {
