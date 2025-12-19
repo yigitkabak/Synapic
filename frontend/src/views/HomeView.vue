@@ -169,6 +169,10 @@
             <i class="fab fa-wikipedia-w active-icon"></i>
             <span class="link-text">Search Wikipedia</span>
           </a>
+          <a href="#" @click.prevent="setQuickSearchType('maps')" class="quick-link">
+            <i class="fa-sharp fa-solid fa-map-location active-icon"></i>
+            <span class="link-text">Search Maps</span>
+          </a>
           <a href="#" @click.prevent="setQuickSearchType('video')" class="quick-link">
             <i class="fas fa-video active-icon"></i>
             <span class="link-text">Search Videos</span>
