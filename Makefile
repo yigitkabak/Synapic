@@ -1,23 +1,23 @@
-.PHONY: all frontend backend frontend-npm backend-npm dev
+.PHONY: all frontend consus frontend-npm consus-npm dev
 
-all: frontend backend
+all: frontend consus
 
 frontend-npm:
 	@echo "Running npm install for frontend..."
 	cd frontend && npm install
 
-backend-npm:
-	@echo "Running npm install for backend..."
-	cd backend && npm install
+consus-npm:
+	@echo "Running npm install for consus..."
+	cd consus && npm install
 
 dev:
 	@echo "Starting both servers..."
-	cd frontend && npm run serve & cd backend && npm run start
+	cd frontend && npm run serve & cd consus && npm run start
 
 frontend:
 	@echo "Starting frontend server..."
 	cd frontend && npm run serve
 
-backend:
-	@echo "Starting backend server..."
-	cd backend && npm run serve
+consus:
+	@echo "Starting consus server..."
+	cd consus && npm run start
