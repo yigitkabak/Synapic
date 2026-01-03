@@ -44,7 +44,7 @@
               <i class="fas fa-magnifying-glass"></i>
             </button>
           </div>
-          <input type="hidden" name="lang" :value="currentLang">
+          <input type="hidden" name="kl" :value="currentLang">
         </form>
 
         <div v-if="showHistory && recentSearches.length > 0" class="history-container">
@@ -117,8 +117,35 @@
             <label for="languageSelect" class="option-label">Language:</label>
             <select id="languageSelect" class="custom-select" v-model="currentLang">
               <option value="tr">Turkish</option>
-              <option value="en">English</option>
-              <option value="de">Deutsch</option>
+<option value="de">Deutsch</option>
+<option value="us">English (US)</option>
+<option value="fr">Français</option>
+<option value="ru">Русский</option>
+<option value="jp">日本語</option>
+<option value="es">Español</option>
+<option value="it">Italiano</option>
+<option value="cn">简体中文</option>
+<option value="gb">English (UK)</option>
+<option value="br">Português (BR)</option>
+<option value="ar">العربية</option>
+<option value="nl">Nederlands</option>
+<option value="pl">Polski</option>
+<option value="kr">한국어</option>
+<option value="in">English (IN)</option>
+<option value="ca">English (CA)</option>
+<option value="au">English (AU)</option>
+<option value="sa">العربية (SA)</option>
+<option value="se">Svenska</option>
+<option value="no">Norsk</option>
+<option value="dk">Dansk</option>
+<option value="fi">Suomi</option>
+<option value="gr">Ελληνικά</option>
+<option value="il">עברית</option>
+<option value="mx">Español (MX)</option>
+<option value="id">Bahasa Indonesia</option>
+<option value="th">ไทย</option>
+<option value="vn">Tiếng Việt</option>
+<option value="za">English (ZA)</option>
             </select>
           </div>
           <button class="save-btn" @click="saveSettings">
@@ -149,7 +176,7 @@
             </button>
           </div>
           <input type="hidden" name="type" :value="quickSearchType">
-          <input type="hidden" name="lang" :value="currentLang">
+          <input type="hidden" name="kl" :value="currentLang">
         </form>
 
         <nav class="quick-links">
@@ -164,10 +191,6 @@
           <a href="#" @click.prevent="setQuickSearchType('news')" class="quick-link">
             <i class="fas fa-newspaper active-icon"></i>
             <span class="link-text">Search News</span>
-          </a>
-          <a href="#" @click.prevent="setQuickSearchType('wiki')" class="quick-link">
-            <i class="fab fa-wikipedia-w active-icon"></i>
-            <span class="link-text">Search Wikipedia</span>
           </a>
           <a href="#" @click.prevent="setQuickSearchType('maps')" class="quick-link">
             <i class="fa-sharp fa-solid fa-map-location active-icon"></i>
@@ -296,7 +319,7 @@ const saveSearchToHistory = async () => {
   if (!searchQuery.value.trim()) return;
   const deviceId = getDeviceId();
   const title = searchQuery.value;
-  const url = `/search?query=${encodeURIComponent(title)}&type=web&lang=${currentLang.value}`;
+  const url = `/search?query=${encodeURIComponent(title)}&type=web&kl=${currentLang.value}`;
   
   try {
     await fetch('/api/save-history', {
@@ -342,7 +365,7 @@ const applyHistorySearch = (title) => {
   const cleanTitle = cleanHistoryTitle(title);
   searchQuery.value = cleanTitle;
   saveSearchToHistory(); 
-  window.location.href = `/search?query=${encodeURIComponent(cleanTitle)}&type=web&lang=${currentLang.value}`;
+  window.location.href = `/search?query=${encodeURIComponent(cleanTitle)}&type=web&kl=${currentLang.value}`;
 };
 
 const toggleControlCenter = (show) => {
